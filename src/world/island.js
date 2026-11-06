@@ -352,37 +352,44 @@ export function createIsland(textures, ctx = {}) {
   const shorelinePositions = [];
 
   function chooseTopTile(cx, cz, h, biome) {
-    const r = Math.hypot(cx, cz);
-
     // Heroic boss arena circle around each Mega Titan position
     for (const key of ['meadow', 'snow', 'farm', 'castle']) {
       const mp = BIOMES[key].megaTitanPos;
       const dm = Math.hypot(cx - mp.x, cz - mp.z);
       if (dm <= 3.6) {
-        return dm >= 2.5 ? TILE_INDEX.bedrock_gold : TILE_INDEX.path_gold;
+        return dm >= 2.5 ? TILE_INDEX.bedrock_gold : TILE_INDEX.farm_soil;
       }
     }
 
-    if (r <= 6.8) {
-      // Garden grass beds framing the 4 Flowerpot Pads, star stone in center plaza
-      for (const pad of HUB_LAYOUT.flowerpotPads) {
-        if (Math.hypot(cx - pad.x, cz - pad.z) <= 1.65) {
-          return TILE_INDEX.grass_top;
-        }
-      }
-      return TILE_INDEX.hub_plaza;
-    }
-
-    if (isPathCell[toIdx(cx, cz)] || h === 1.5) {
+    // Center N-S Main Street Dividing Line (x in [-1, 1]): Clean Asphalt Road separating Poor West vs Rich East!
+    if (Math.abs(cx) <= 1) {
       return TILE_INDEX.path_gold;
     }
 
-    if (biome === 'hub' || biome === 'meadow') return TILE_INDEX.grass_top;
-    if (biome === 'snow') return TILE_INDEX.snow_top;
-    if (biome === 'farm') {
-      return (Math.abs(cx * 3 + cz * 5) % 4) < 2 ? TILE_INDEX.farm_soil : TILE_INDEX.grass_top;
+    // Pad frames: West pads sit on $1 Cursed Cobble Crate, East pads sit on $100K Diamond & Gold Tile
+    for (const pad of HUB_LAYOUT.flowerpotPads) {
+      if (Math.hypot(cx - pad.x, cz - pad.z) <= 1.65) {
+        return pad.x < 0 ? TILE_INDEX.spruce_top : TILE_INDEX.castle_brick;
+      }
     }
-    return (Math.abs(cx + cz) % 5 === 0) ? TILE_INDEX.bedrock_gold : TILE_INDEX.castle_brick;
+
+    // Strict Split-World City Floor:
+    // West Side (cx < 0): Mikey's $1 Mossy Cobblestone Street (South/Hub) & Steel Heist Vault (North)
+    if (cx < 0) {
+      if (cz <= -8 || biome === 'snow') {
+        return TILE_INDEX.snow_top;
+      }
+      return (Math.abs(cx + cz) % 6 === 0) ? TILE_INDEX.spruce_top : TILE_INDEX.grass_top;
+    }
+
+    // East Side (cx > 0): JJ's $100,000 Pro Cream-Marble Plaza, Golden Sandstone Drive-Thru & Cyan-Diamond Hilltop!
+    if (cz <= -8 || biome === 'castle') {
+      return (Math.abs(cx + cz) % 5 === 0) ? TILE_INDEX.ice_crystal : TILE_INDEX.castle_brick;
+    }
+    if (Math.abs(cz) <= 1 || (cz >= 8 && Math.abs(cx + cz) % 3 === 0)) {
+      return TILE_INDEX.farm_soil;
+    }
+    return TILE_INDEX.hub_plaza;
   }
 
   function chooseSideTile(biome, isUpperBand) {
@@ -391,6 +398,7 @@ export function createIsland(textures, ctx = {}) {
     }
     if (biome === 'snow') return TILE_INDEX.snow_side;
     if (biome === 'castle') return TILE_INDEX.bedrock_gold;
+    if (biome === 'farm') return TILE_INDEX.bedrock_gold;
     return TILE_INDEX.grass_side;
   }
 
@@ -398,7 +406,19 @@ export function createIsland(textures, ctx = {}) {
   for (let cz = NAV_MIN; cz <= NAV_MAX; cz++) {
     for (let cx = NAV_MIN; cx <= NAV_MAX; cx++) {
       const idx = toIdx(cx, cz);
-      if (!isLand[idx]) continue;
+      if (!isLand[idx]) {
+        // Surround the plaza and 4 districts with a flush Split-World City Boulevard Grid (y = 0.96)
+        if (Math.abs(cx) <= 34 && Math.abs(cz) <= 34) {
+          const outerTile =
+            Math.abs(cx) <= 1
+              ? TILE_INDEX.path_gold
+              : cx < 0
+                ? (cz <= -8 ? TILE_INDEX.snow_top : TILE_INDEX.grass_top)
+                : (cz <= -8 ? TILE_INDEX.castle_brick : TILE_INDEX.farm_soil);
+          opaqueBuilder.addQuad(2, cx, 0, 0.96, cz, 1, 1, outerTile, 0.9, 0.9, 0.92);
+        }
+        continue;
+      }
       const h = heights[idx];
       const biome = getBiomeAt(cx, cz);
       const topTile = chooseTopTile(cx, cz, h, biome);
@@ -406,7 +426,7 @@ export function createIsland(textures, ctx = {}) {
       // Top walkable surface quad
       opaqueBuilder.addQuad(2, cx, 0, h, cz, 1, 1, topTile);
 
-      // Neighbor exposed cliff / step faces (+X, -X, +Z, -Z)
+      // Neighbor exposed cliff / curb faces (+X, -X, +Z, -Z)
       const neighbors = [
         { face: 0, nx: cx + 1, nz: cz },
         { face: 1, nx: cx - 1, nz: cz },
@@ -418,7 +438,7 @@ export function createIsland(textures, ctx = {}) {
         const nh = inGrid(nb.nx, nb.nz) && isLand[toIdx(nb.nx, nb.nz)] ? heights[toIdx(nb.nx, nb.nz)] : 0;
         if (nh === 0) touchesOcean = true;
         if (nh < h) {
-          const bottomY = nh === 0 ? SKIRT_BOTTOM : nh;
+          const bottomY = nh === 0 ? 0.54 : nh;
           const midY = Math.max(bottomY, h - 1.0);
           opaqueBuilder.addQuad(nb.face, cx, midY, h, cz, 1, 1, chooseSideTile(biome, true));
           if (midY > bottomY + 0.01) {
@@ -432,47 +452,82 @@ export function createIsland(textures, ctx = {}) {
     }
   }
 
-  // Decorative static landmarks (zero camera occlusion on South side!)
+  // Decorative static 3D Burger Battle & Split-World City Landmarks (zero camera occlusion on South side!)
   function addOakTree(tx, tz) {
+    // Giant Golden French Fries & Kentungan Drive-Thru Pillar
     if (!inGrid(tx, tz) || !isLand[toIdx(tx, tz)]) return;
     const by = heights[toIdx(tx, tz)];
     markPropFootprint(tx, tz, 0.45);
-    opaqueBuilder.addBox(tx, by, by + 2.6, tz, 0.78, 0.78, {
-      side: TILE_INDEX.oak_bark,
-      top: TILE_INDEX.oak_top,
-    });
-    opaqueBuilder.addBox(tx, by + 2.3, by + 3.9, tz, 2.5, 2.5, { side: TILE_INDEX.leaves_lush });
-    opaqueBuilder.addBox(tx, by + 3.8, by + 4.9, tz, 1.5, 1.5, { side: TILE_INDEX.leaves_lush });
+    if (tx < 0) {
+      // Mikey's $1 Cursed Cobblestone & Rotten-Burger Ruin Pillar
+      opaqueBuilder.addBox(tx, by, by + 2.4, tz, 1.4, 1.4, {
+        side: TILE_INDEX.spruce_bark,
+        top: TILE_INDEX.spruce_top,
+      });
+      opaqueBuilder.addBox(tx, by + 2.4, by + 3.8, tz, 1.8, 1.8, {
+        side: TILE_INDEX.pumpkin_side,
+        front: TILE_INDEX.pumpkin_front,
+        top: TILE_INDEX.pumpkin_top,
+      });
+      opaqueBuilder.addBox(tx, by + 3.8, by + 4.7, tz, 1.1, 1.1, {
+        side: TILE_INDEX.snowman_face,
+        top: TILE_INDEX.spruce_top,
+      });
+    } else {
+      // JJ's Giant Crispy French Fry Carton & Fizzy Cola Tower
+      opaqueBuilder.addBox(tx, by, by + 2.5, tz, 1.55, 1.55, {
+        side: TILE_INDEX.flower_red_side,
+        top: TILE_INDEX.flower_red_top,
+      });
+      opaqueBuilder.addBox(tx, by + 2.5, by + 4.1, tz, 2.1, 2.1, {
+        side: TILE_INDEX.leaves_lush,
+        top: TILE_INDEX.hay_top,
+      });
+      glowBuilder.addBox(tx, by + 4.1, by + 5.0, tz, 1.2, 1.2, {
+        side: TILE_INDEX.lantern_glow,
+        top: TILE_INDEX.lantern_glow,
+      });
+    }
   }
 
   function addSpruceTree(tx, tz) {
+    // Robber's Bank Heist Steel Safe & Siren Tower
     if (!inGrid(tx, tz) || !isLand[toIdx(tx, tz)]) return;
     const by = heights[toIdx(tx, tz)];
     markPropFootprint(tx, tz, 0.45);
-    opaqueBuilder.addBox(tx, by, by + 2.8, tz, 0.72, 0.72, {
+    opaqueBuilder.addBox(tx, by, by + 2.6, tz, 1.75, 1.75, {
+      side: TILE_INDEX.snow_side,
+      front: TILE_INDEX.beehive_front,
+      top: TILE_INDEX.snow_top,
+    });
+    opaqueBuilder.addBox(tx, by + 2.6, by + 3.9, tz, 1.35, 1.35, {
       side: TILE_INDEX.spruce_bark,
-      top: TILE_INDEX.spruce_top,
-    });
-    opaqueBuilder.addBox(tx, by + 1.8, by + 3.0, tz, 2.6, 2.6, {
-      side: TILE_INDEX.leaves_frost,
       top: TILE_INDEX.snow_top,
     });
-    opaqueBuilder.addBox(tx, by + 2.9, by + 4.1, tz, 1.8, 1.8, {
-      side: TILE_INDEX.leaves_frost,
-      top: TILE_INDEX.snow_top,
-    });
-    opaqueBuilder.addBox(tx, by + 4.0, by + 5.1, tz, 1.0, 1.0, {
-      side: TILE_INDEX.snow_top,
-      top: TILE_INDEX.snow_top,
+    glowBuilder.addBox(tx, by + 3.9, by + 4.7, tz, 0.85, 0.85, {
+      side: TILE_INDEX.lantern_glow,
+      top: TILE_INDEX.ice_crystal,
     });
   }
 
   function addGiantMushroom(mx, mz) {
+    // Giant Smelly Green Burger Barrel (West) or Fizzy Cola Fountain (East)
     if (!inGrid(mx, mz) || !isLand[toIdx(mx, mz)]) return;
     const by = heights[toIdx(mx, mz)];
     markPropFootprint(mx, mz, 0.45);
-    opaqueBuilder.addBox(mx, by, by + 1.5, mz, 0.65, 0.65, { side: TILE_INDEX.hub_plaza });
-    opaqueBuilder.addBox(mx, by + 1.45, by + 2.45, mz, 2.1, 2.1, { side: TILE_INDEX.mushroom_red });
+    if (mx < 0) {
+      opaqueBuilder.addBox(mx, by, by + 1.6, mz, 1.15, 1.15, { side: TILE_INDEX.spruce_bark });
+      opaqueBuilder.addBox(mx, by + 1.6, by + 2.8, mz, 1.75, 1.75, {
+        side: TILE_INDEX.pumpkin_side,
+        front: TILE_INDEX.pumpkin_front,
+        top: TILE_INDEX.pumpkin_top,
+      });
+    } else {
+      opaqueBuilder.addBox(mx, by, by + 2.4, mz, 1.45, 1.45, {
+        side: TILE_INDEX.melon_side,
+        top: TILE_INDEX.melon_top,
+      });
+    }
   }
 
   function addLanternPost(lx, lz, heightScale = 1.0) {
@@ -481,99 +536,219 @@ export function createIsland(textures, ctx = {}) {
     if (!inGrid(cx, cz) || !isLand[toIdx(cx, cz)]) return;
     const by = heights[toIdx(cx, cz)];
     markPropFootprint(lx, lz, 0.35);
-    const postH = 2.0 * heightScale;
-    opaqueBuilder.addBox(lx, by, by + postH, lz, 0.36, 0.36, { side: TILE_INDEX.oak_bark });
-    glowBuilder.addBox(lx, by + postH, by + postH + 0.62, lz, 0.66, 0.66, { side: TILE_INDEX.lantern_glow });
-    opaqueBuilder.addBox(lx, by + postH + 0.62, by + postH + 0.82, lz, 0.8, 0.8, { side: TILE_INDEX.bedrock_gold });
+    const postH = 2.1 * heightScale;
+    const isPoorSide = lx < 0;
+    opaqueBuilder.addBox(lx, by, by + postH, lz, 0.48, 0.48, {
+      side: isPoorSide ? TILE_INDEX.spruce_bark : TILE_INDEX.bedrock_gold,
+    });
+    glowBuilder.addBox(lx, by + postH, by + postH + 0.72, lz, 0.82, 0.82, {
+      side: isPoorSide ? TILE_INDEX.snowman_face : TILE_INDEX.leaves_lush,
+      top: TILE_INDEX.lantern_glow,
+    });
+    opaqueBuilder.addBox(lx, by + postH + 0.72, by + postH + 0.96, lz, 0.98, 0.98, {
+      side: isPoorSide ? TILE_INDEX.dirt : TILE_INDEX.mushroom_red,
+    });
   }
 
   function addCastleTurret(tx, tz) {
+    // JJ's $100,000 Cyan Diamond & 24K Gold Skyscraper Tower
     if (!inGrid(tx, tz) || !isLand[toIdx(tx, tz)]) return;
     const by = heights[toIdx(tx, tz)];
     markPropFootprint(tx, tz, 0.9);
-    opaqueBuilder.addBox(tx, by, by + 3.6, tz, 1.85, 1.85, {
-      side: TILE_INDEX.castle_brick,
-      top: TILE_INDEX.bedrock_gold,
+    opaqueBuilder.addBox(tx, by, by + 3.8, tz, 2.05, 2.05, {
+      side: TILE_INDEX.leaves_frost,
+      top: TILE_INDEX.castle_brick,
     });
-    opaqueBuilder.addBox(tx, by + 3.6, by + 4.3, tz, 2.15, 2.15, { side: TILE_INDEX.bedrock_gold });
-    glowBuilder.addBox(tx, by + 4.3, by + 5.1, tz, 0.85, 0.85, { side: TILE_INDEX.lantern_glow });
+    opaqueBuilder.addBox(tx, by + 3.8, by + 4.6, tz, 2.35, 2.35, {
+      side: TILE_INDEX.bedrock_gold,
+      top: TILE_INDEX.amethyst,
+    });
+    glowBuilder.addBox(tx, by + 4.6, by + 5.6, tz, 1.15, 1.15, {
+      side: TILE_INDEX.ice_crystal,
+      top: TILE_INDEX.lantern_glow,
+    });
   }
 
   function addCrystalObelisk(ox, oz, tileIdx) {
     if (!inGrid(ox, oz) || !isLand[toIdx(ox, oz)]) return;
     const by = heights[toIdx(ox, oz)];
     markPropFootprint(ox, oz, 0.4);
-    opaqueBuilder.addBox(ox, by, by + 0.55, oz, 0.95, 0.95, { side: TILE_INDEX.bedrock_gold });
-    glowBuilder.addBox(ox, by + 0.55, by + 2.4, oz, 0.68, 0.68, { side: tileIdx });
+    opaqueBuilder.addBox(ox, by, by + 0.65, oz, 1.05, 1.05, { side: TILE_INDEX.bedrock_gold });
+    glowBuilder.addBox(ox, by + 0.65, by + 2.6, oz, 0.78, 0.78, { side: tileIdx });
   }
 
-  // North Hub Golden Trophy Stage + 4 Pedestal Columns
-  opaqueBuilder.addBox(0, 1.0, 1.24, -7.9, 12.2, 2.2, {
-    side: TILE_INDEX.bedrock_gold,
-    top: TILE_INDEX.path_gold,
+  // North Hub Split-World McDonald's Showdown Stage + 4 Pedestal Columns + Drive-Thru Backdrop
+  // Left stage half = Mikey's $1 Cobblestone; Right stage half = JJ's $100K Red/Gold/Diamond!
+  opaqueBuilder.addBox(-3.1, 1.0, 1.28, -7.9, 6.1, 2.3, {
+    side: TILE_INDEX.spruce_bark,
+    top: TILE_INDEX.grass_top,
   });
+  opaqueBuilder.addBox(3.1, 1.0, 1.28, -7.9, 6.1, 2.3, {
+    side: TILE_INDEX.bedrock_gold,
+    top: TILE_INDEX.hub_plaza,
+  });
+
+  // Grand North Showdown Backdrop Archway at z = -9.1 (outside pedestal walk zone, directly in camera view!)
+  // Left Backdrop: Mikey's $1 Noob Cobblestone Shack Wall + White Pixel Ghost + Dirt 'M' Sign
+  opaqueBuilder.addBox(-4.2, 1.0, 3.2, -9.2, 3.6, 0.9, {
+    side: TILE_INDEX.grass_top,
+    front: TILE_INDEX.spruce_bark,
+    top: TILE_INDEX.dirt,
+  });
+  opaqueBuilder.addBox(-4.2, 2.0, 3.0, -8.7, 1.1, 0.25, {
+    side: TILE_INDEX.snowman_face,
+    front: TILE_INDEX.snowman_face,
+  });
+  opaqueBuilder.addBox(-4.2, 3.2, 3.65, -9.0, 3.9, 1.2, {
+    side: TILE_INDEX.hay_side,
+    top: TILE_INDEX.dirt,
+  });
+  // Dirt 'M' roof sign on Left Backdrop
+  opaqueBuilder.addBox(-5.0, 3.65, 4.85, -9.1, 0.55, 0.55, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-4.2, 3.95, 4.65, -9.1, 0.55, 0.55, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-3.4, 3.65, 4.85, -9.1, 0.55, 0.55, { side: TILE_INDEX.dirt });
+
+  // Center Backdrop Pillar: Tung Tung Tung Sahur Kentungan Rhythm Beacon
+  opaqueBuilder.addBox(0, 1.0, 3.8, -9.2, 1.6, 1.1, {
+    side: TILE_INDEX.oak_bark,
+    top: TILE_INDEX.oak_top,
+  });
+  glowBuilder.addBox(0, 3.8, 4.8, -9.2, 1.2, 1.0, {
+    side: TILE_INDEX.lantern_glow,
+    top: TILE_INDEX.lantern_glow,
+  });
+
+  // Right Backdrop: JJ's $100,000 Pro Red/White/Gold + Cyan Diamond McDonald's & Golden Arches!
+  opaqueBuilder.addBox(4.2, 1.0, 3.5, -9.2, 3.8, 0.95, {
+    side: TILE_INDEX.leaves_lush,
+    front: TILE_INDEX.leaves_frost,
+    top: TILE_INDEX.bedrock_gold,
+  });
+  opaqueBuilder.addBox(4.2, 3.5, 4.0, -9.0, 4.2, 1.25, {
+    side: TILE_INDEX.mushroom_red,
+    top: TILE_INDEX.bedrock_gold,
+  });
+  // Glowing Golden 'M' Arches on Right Backdrop!
+  glowBuilder.addBox(3.3, 4.0, 5.35, -9.1, 0.52, 0.52, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(4.2, 4.35, 5.15, -9.1, 0.52, 0.52, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(5.1, 4.0, 5.35, -9.1, 0.52, 0.52, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(3.75, 5.05, 5.45, -9.1, 0.95, 0.52, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(4.65, 5.05, 5.45, -9.1, 0.95, 0.52, { side: TILE_INDEX.lantern_glow });
+
   for (const ped of HUB_LAYOUT.trophyPedestals) {
+    const isRichPed = ped.x > 0;
     opaqueBuilder.addBox(ped.x, 1.0, 1.72, ped.z, 1.08, 1.08, {
-      side: TILE_INDEX.bedrock_gold,
-      top: TILE_INDEX.hub_plaza,
+      side: isRichPed ? TILE_INDEX.bedrock_gold : TILE_INDEX.spruce_bark,
+      top: isRichPed ? TILE_INDEX.castle_brick : TILE_INDEX.grass_top,
     });
     glowBuilder.addBox(ped.x, 1.54, 1.74, ped.z, 1.14, 1.14, {
-      side: TILE_INDEX.lantern_glow,
+      side: isRichPed ? TILE_INDEX.ice_crystal : TILE_INDEX.lantern_glow,
       top: TILE_INDEX.hub_plaza,
     });
   }
 
-  // Hub Cozy Garden Lantern Posts
-  addLanternPost(-7.5, -5.5, 0.95);
-  addLanternPost(7.5, -5.5, 0.95);
-  addLanternPost(-7.8, 5.2, 0.9);
-  addLanternPost(7.8, 5.2, 0.9);
+  // Hub Split-World Drive-Thru & Cobblestone Pillars
+  addLanternPost(-7.5, -5.5, 1.15);
+  addLanternPost(7.5, -5.5, 1.15);
+  addLanternPost(-7.8, 5.2, 1.05);
+  addLanternPost(7.8, 5.2, 1.05);
 
-  // SW Sunny Meadow Trees & Giant Mushrooms (outer perimeter)
+  // West Hub Full-Size 3D Landmark (-8.4, z = -0.6): MIKEY'S $1 NOOB COBBLESTONE BURGER SHACK!
+  // Placed along the outer West Hub terrace curb so it never blocks pad/chest walking paths
+  opaqueBuilder.addBox(-8.4, 1.0, 3.2, -0.6, 2.2, 4.4, {
+    side: TILE_INDEX.grass_top,
+    front: TILE_INDEX.spruce_bark,
+    top: TILE_INDEX.dirt,
+  });
+  // White pixel ghost on the wall facing the plaza (+X)
+  opaqueBuilder.addBox(-7.25, 1.7, 2.7, -1.6, 0.18, 1.1, {
+    side: TILE_INDEX.snowman_face,
+    front: TILE_INDEX.snowman_face,
+  });
+  // Yellow wool roof awning
+  opaqueBuilder.addBox(-8.2, 3.2, 3.65, -0.6, 2.6, 4.8, {
+    side: TILE_INDEX.hay_side,
+    top: TILE_INDEX.dirt,
+  });
+  // Giant Brown Dirt-Block 'M' Sign on Mikey's roof!
+  opaqueBuilder.addBox(-8.2, 3.65, 4.95, -1.7, 0.58, 0.58, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-8.2, 4.05, 4.75, -0.6, 0.58, 0.58, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-8.2, 3.65, 4.95, 0.5, 0.58, 0.58, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-8.2, 4.65, 5.05, -1.15, 0.58, 1.15, { side: TILE_INDEX.dirt });
+  opaqueBuilder.addBox(-8.2, 4.65, 5.05, -0.05, 0.58, 1.15, { side: TILE_INDEX.dirt });
+
+  // East Hub Full-Size 3D Landmark (+8.4, z = -0.6): JJ'S $100,000 PRO 2-STORY DIAMOND MCDONALD'S!
+  opaqueBuilder.addBox(8.4, 1.0, 2.7, -0.6, 2.4, 4.6, {
+    side: TILE_INDEX.leaves_lush,
+    front: TILE_INDEX.leaves_lush,
+    top: TILE_INDEX.bedrock_gold,
+  });
+  // 2nd-story Cyan Diamond Glass Dining Room
+  opaqueBuilder.addBox(8.4, 2.7, 4.1, -0.6, 2.3, 4.4, {
+    side: TILE_INDEX.leaves_frost,
+    front: TILE_INDEX.leaves_frost,
+    top: TILE_INDEX.bedrock_gold,
+  });
+  // Red & White Striped Roof Cornice
+  opaqueBuilder.addBox(8.2, 4.1, 4.55, -0.6, 2.7, 4.9, {
+    side: TILE_INDEX.mushroom_red,
+    top: TILE_INDEX.bedrock_gold,
+  });
+  // Giant Glowing Golden 'JM' Arches on JJ's Roof!
+  glowBuilder.addBox(8.2, 4.55, 5.95, -1.7, 0.58, 0.58, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(8.2, 4.95, 5.75, -0.6, 0.58, 0.58, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(8.2, 4.55, 5.95, 0.5, 0.58, 0.58, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(8.2, 5.65, 6.05, -1.15, 0.58, 1.15, { side: TILE_INDEX.lantern_glow });
+  glowBuilder.addBox(8.2, 5.65, 6.05, -0.05, 0.58, 1.15, { side: TILE_INDEX.lantern_glow });
+
+  // SW Mikey's $1 Cursed Cobblestone Ruins & Rotten-Burger Barrels (outer perimeter)
   addOakTree(-28, 21);
   addOakTree(-21, 28);
   addOakTree(-28, 28);
   addGiantMushroom(-26, 13);
   addGiantMushroom(-13, 27);
 
-  // NW Crystal Snow Pines, Obelisks & Friendly Snowman
+  // NW Robber's Heist Alley Safe Towers, Diamond Obelisks & Masked Getaway Van
   addSpruceTree(-28, -21);
   addSpruceTree(-21, -28);
   addSpruceTree(-28, -28);
-  addCrystalObelisk(-12, -9, TILE_INDEX.ice_crystal);
-  addCrystalObelisk(-9, -12, TILE_INDEX.ice_crystal);
+  addCrystalObelisk(-12, -9, TILE_INDEX.beehive_front);
+  addCrystalObelisk(-9, -12, TILE_INDEX.beehive_front);
   if (isLand[toIdx(-26, -13)]) {
     const sy = heights[toIdx(-26, -13)];
     markPropFootprint(-26, -13, 0.5);
-    opaqueBuilder.addBox(-26, sy, sy + 1.0, -13, 1.15, 1.15, { side: TILE_INDEX.snow_top });
-    opaqueBuilder.addBox(-26, sy + 1.0, sy + 1.85, -13, 0.85, 0.85, {
-      side: TILE_INDEX.snow_top,
+    opaqueBuilder.addBox(-26, sy, sy + 1.2, -13, 1.35, 1.35, {
+      side: TILE_INDEX.snow_side,
+      front: TILE_INDEX.beehive_front,
+    });
+    opaqueBuilder.addBox(-26, sy + 1.2, sy + 2.15, -13, 1.0, 1.0, {
+      side: TILE_INDEX.spruce_bark,
       front: TILE_INDEX.snowman_face,
     });
-    opaqueBuilder.addBox(-26, sy + 1.85, sy + 2.35, -13, 0.65, 0.65, { side: TILE_INDEX.bedrock_gold });
+    glowBuilder.addBox(-26, sy + 2.15, sy + 2.65, -13, 0.75, 0.75, { side: TILE_INDEX.lantern_glow });
   }
 
-  // SE Honey & Pumpkin Farm Barn Beacon & Trees
+  // SE JJ & Sahur Drive-Thru Fry Towers, Cola Fountains & Giant Drive-Thru Order Booth
   addOakTree(28, 14);
   addOakTree(14, 28);
-  addLanternPost(11, 8, 1.05);
-  addLanternPost(8, 11, 1.05);
+  addLanternPost(11, 8, 1.15);
+  addLanternPost(8, 11, 1.15);
   if (isLand[toIdx(28, 28)]) {
     const fy = heights[toIdx(28, 28)];
     markPropFootprint(28, 28, 0.9);
-    opaqueBuilder.addBox(28, fy, fy + 2.8, 28, 1.9, 1.9, {
-      side: TILE_INDEX.hay_side,
+    opaqueBuilder.addBox(28, fy, fy + 3.0, 28, 2.1, 2.1, {
+      side: TILE_INDEX.leaves_lush,
       top: TILE_INDEX.hay_top,
     });
-    opaqueBuilder.addBox(28, fy + 2.8, fy + 3.6, 28, 2.2, 2.2, { side: TILE_INDEX.mushroom_red });
-    glowBuilder.addBox(28, fy + 3.6, fy + 4.2, 28, 0.7, 0.7, { side: TILE_INDEX.lantern_glow });
+    opaqueBuilder.addBox(28, fy + 3.0, fy + 3.9, 28, 2.4, 2.4, { side: TILE_INDEX.mushroom_red });
+    glowBuilder.addBox(28, fy + 3.9, fy + 4.7, 28, 0.9, 0.9, { side: TILE_INDEX.lantern_glow });
   }
 
-  // NE Golden Bedrock Castle Turrets & Royal Gate Pillars
+  // NE JJ's $100,000 Cyan Diamond Skyscrapers & 24K Gold Vault Pillars
   addCastleTurret(29, -29);
   addCastleTurret(29, -14);
   addCastleTurret(14, -29);
-  addCrystalObelisk(12, -9, TILE_INDEX.amethyst);
+  addCrystalObelisk(12, -9, TILE_INDEX.ice_crystal);
   addCrystalObelisk(9, -12, TILE_INDEX.amethyst);
 
   const makeSurfaceMat = (opts) => {
@@ -592,8 +767,8 @@ export function createIsland(textures, ctx = {}) {
   const terrainOpaqueMat = makeSurfaceMat({
     map: textures.atlasTexture,
     vertexColors: true,
-    roughness: 0.82,
-    metalness: 0.05,
+    roughness: 0.78,
+    metalness: 0.06,
   });
   const terrainOpaqueMesh = new THREE.Mesh(opaqueBuilder.build(), terrainOpaqueMat);
   terrainOpaqueMesh.name = 'TerrainOpaque';
@@ -607,9 +782,9 @@ export function createIsland(textures, ctx = {}) {
     map: textures.atlasTexture,
     emissive: 0xffffff,
     emissiveMap: textures.emissiveAtlasTexture,
-    emissiveIntensity: 0.68,
+    emissiveIntensity: 0.74,
     vertexColors: true,
-    roughness: 0.48,
+    roughness: 0.44,
     metalness: 0.08,
   });
   const terrainGlowMesh = new THREE.Mesh(glowBuilder.build(), terrainGlowMat);
@@ -620,28 +795,28 @@ export function createIsland(textures, ctx = {}) {
   terrainGlowMesh.updateMatrix();
   group.add(terrainGlowMesh);
 
-  // Sparkling Ocean Plane (1 draw call) + Animated Shoreline Foam (1 InstancedMesh draw call)
-  textures.tiles.water.repeat.set(34, 34);
+  // Surrounding Megacity Asphalt Highway Grid (1 draw call) + Golden Drive-Thru Curb Lights (1 InstancedMesh draw call)
+  textures.tiles.water.repeat.set(38, 38);
   const waterGeo = new THREE.PlaneGeometry(176, 176, 1, 1);
   waterGeo.rotateX(-Math.PI * 0.5);
   const waterMat = makeSurfaceMat({
     map: textures.tiles.water,
-    color: 0x52dcff,
-    emissive: 0x0e6e94,
-    emissiveIntensity: 0.24,
-    roughness: 0.45,
-    metalness: 0.08,
+    color: 0xffffff,
+    emissive: 0x1e222e,
+    emissiveIntensity: 0.28,
+    roughness: 0.62,
+    metalness: 0.06,
   });
   const waterMesh = new THREE.Mesh(waterGeo, waterMat);
-  waterMesh.position.y = 0.14;
+  waterMesh.position.y = 0.52;
   waterMesh.receiveShadow = true;
   group.add(waterMesh);
 
-  const foamGeo = new THREE.BoxGeometry(1.18, 0.08, 1.18);
+  const foamGeo = new THREE.BoxGeometry(1.14, 0.12, 1.14);
   const foamMat = new THREE.MeshBasicMaterial({
-    color: 0xdffbff,
+    color: 0xffd43b,
     transparent: true,
-    opacity: 0.62,
+    opacity: 0.78,
     depthWrite: false,
     toneMapped: false,
     fog: false,
@@ -792,20 +967,22 @@ export function createIsland(textures, ctx = {}) {
       dummy.updateMatrix();
       padBaseMesh.setMatrixAt(i, dummy.matrix);
 
-      if (p.tier === 0) tmpColor.setHex(0xb2f2bb);
-      else if (p.tier === 1) tmpColor.setHex(0xffe066);
-      else if (p.tier === 2) tmpColor.setHex(0x74c0fc);
-      else tmpColor.setHex(0xff85c0);
+      if (p.tier === 0) tmpColor.setHex(p.x < 0 ? 0x9aa5b1 : 0xffd43b);
+      else if (p.tier === 1) tmpColor.setHex(0xffd43b);
+      else if (p.tier === 2) tmpColor.setHex(0x22d3ee);
+      else tmpColor.setHex(0xff4d6d);
       padBaseMesh.setColorAt(i, tmpColor);
 
       const ringColor =
         p.tier === 0
-          ? 0x69db7c
+          ? p.x < 0
+            ? 0x74d14c
+            : 0xffd43b
           : p.tier === 1
             ? 0xffd43b
             : p.tier === 2
-              ? 0x3bc9db
-              : 0xff6b9d;
+              ? 0x22d3ee
+              : 0xff4d6d;
       ringMesh.setColorAt(i, tmpColor.setHex(ringColor));
     }
     padBaseMesh.instanceMatrix.needsUpdate = true;
@@ -905,15 +1082,15 @@ export function createIsland(textures, ctx = {}) {
   function update(dt = 1 / 60, time = 0, ringVisibility = {}) {
     const clampedDt = Math.min(0.05, Math.max(0, dt));
 
-    // Gentle ocean wave drift & shoreline foam pulse
-    textures.tiles.water.offset.x = (time * 0.06) % 1;
-    textures.tiles.water.offset.y = Math.sin(time * 0.4) * 0.08;
-    waterMesh.position.y = 0.14 + Math.sin(time * 1.8) * 0.03;
+    // Bustling City Highway lane scroll & Golden Drive-Thru Curb Lights pulse
+    textures.tiles.water.offset.x = (time * 0.08) % 1;
+    textures.tiles.water.offset.y = -(time * 0.14) % 1;
+    waterMesh.position.y = 0.48;
 
     for (let i = 0; i < shorelinePositions.length; i++) {
       const sp = shorelinePositions[i];
-      const wave = 1.0 + Math.sin(time * 2.4 + sp.x * 0.45 + sp.z * 0.45) * 0.14;
-      dummy.position.set(sp.x, 0.15, sp.z);
+      const wave = 0.92 + Math.sin(time * 3.0 + sp.x * 0.45 + sp.z * 0.45) * 0.12;
+      dummy.position.set(sp.x, 0.58, sp.z);
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(wave, 1, wave);
       dummy.updateMatrix();

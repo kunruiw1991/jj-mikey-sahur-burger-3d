@@ -1,5 +1,5 @@
-// Procedural 16x16 pixel-art CanvasTextures and 8x8 voxel atlas (owner: lucky-world).
-// Uses crisp NearestFilter + SRGBColorSpace with zero external image dependencies.
+// Procedural 16x16 pixel-art CanvasTextures and 8x8 voxel atlas for JJ & Mikey vs Tung Tung Sahur: McDonald's Burger Battle 3D!
+// Split-World Theme: Left = Mikey's $1 Cursed Cobblestone & Robber Alley | Right = JJ's $100,000 Red/Gold McDonald's & Cyan Diamond Boulevard.
 
 import * as THREE from '../../vendor/three.module.min.js';
 import { createRng } from '../core/rng.js';
@@ -79,7 +79,7 @@ function finalizePixelTexture(canvas, repeat = false) {
 
 function fillNoise(ctx, rng, palette, x0 = 0, y0 = 0, w = 16, h = 16) {
   for (let y = y0; y < y0 + h; y++) {
-    for (let x = x0; x < x0 + w; x++) {
+    for (let x = x0; x0 + w > x; x++) {
       ctx.fillStyle = rng.pick(palette);
       ctx.fillRect(x, y, 1, 1);
     }
@@ -107,281 +107,270 @@ function drawBitmap(ctx, rows, colorMap, ox = 0, oy = 0) {
 function paintTile(name, ctx, emCtx, rng) {
   switch (name) {
     case 'grass_top': {
-      fillNoise(ctx, rng, ['#4fd448', '#5ede54', '#44c23e', '#6de861', '#58d84e']);
-      // Tiny sunlit clover and buttercup pixel accents
-      px(ctx, 3, 4, '#8cf27d');
-      px(ctx, 11, 2, '#98f788');
-      px(ctx, 6, 12, '#ffe866');
-      px(ctx, 13, 10, '#8cf27d');
+      // Mikey's $1 Cursed Mossy Cobblestone Pavement (Clean, smooth low-contrast stone + moss)
+      fillNoise(ctx, rng, ['#6c757d', '#636b73', '#747d85', '#5a626a']);
+      px(ctx, 0, 0, '#495057', 16, 1);
+      px(ctx, 0, 8, '#495057', 16, 1);
+      px(ctx, 7, 0, '#495057', 1, 8);
+      px(ctx, 13, 8, '#495057', 1, 8);
+      // Soft mossy patches
+      px(ctx, 2, 2, '#69b55c', 3, 2);
+      px(ctx, 10, 5, '#69b55c', 2, 2);
+      px(ctx, 4, 11, '#69b55c', 3, 2);
       break;
     }
 
     case 'grass_side': {
-      fillNoise(ctx, rng, ['#8d5b34', '#7b4d29', '#9d693f', '#6d4222']);
-      fillNoise(ctx, rng, ['#4fd448', '#5ede54', '#43c03d', '#6ee862'], 0, 0, 16, 4);
-      const fringe = [5, 4, 6, 5, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 5, 4];
-      for (let x = 0; x < 16; x++) {
-        const h = fringe[x];
-        px(ctx, x, 3, '#44c23e', 1, h - 3);
-        px(ctx, x, h, '#5a381d', 1, 1);
-      }
-      px(ctx, 4, 10, '#b58456');
-      px(ctx, 11, 12, '#b58456');
+      fillNoise(ctx, rng, ['#5c4d42', '#52443a', '#66564a']);
+      fillNoise(ctx, rng, ['#6c757d', '#747d85', '#5a626a'], 0, 0, 16, 5);
+      px(ctx, 0, 5, '#495057', 16, 1);
+      px(ctx, 3, 2, '#69b55c', 3, 2);
       break;
     }
 
     case 'dirt': {
-      fillNoise(ctx, rng, ['#8d5b34', '#7c4e29', '#9e6a40', '#6d4222', '#85542f']);
-      px(ctx, 2, 5, '#b88758');
-      px(ctx, 9, 3, '#5c361a');
-      px(ctx, 12, 11, '#b88758');
-      px(ctx, 5, 13, '#5c361a');
+      // Mikey's Brown Dirt Sign & Foundation Block
+      fillNoise(ctx, rng, ['#7c5333', '#6e482b', '#8a5d3b', '#613f25']);
+      px(ctx, 2, 4, '#9c6c46', 2, 2);
+      px(ctx, 10, 11, '#9c6c46', 2, 2);
       break;
     }
 
     case 'farm_soil': {
-      fillNoise(ctx, rng, ['#99c947', '#8bbd3b', '#a8d654', '#7eb032']);
-      for (let y = 2; y < 16; y += 4) {
-        px(ctx, 0, y, '#7da332', 16, 1);
-      }
-      px(ctx, 4, 5, '#ffd84d');
-      px(ctx, 11, 13, '#ffd84d');
+      // Clean Warm Golden Sandstone Patio Tile (East Drive-Thru Patio)
+      fillNoise(ctx, rng, ['#f5deb3', '#eed29e', '#fae6be', '#e5c58a']);
+      px(ctx, 0, 0, '#d9b26f', 16, 1);
+      px(ctx, 0, 0, '#d9b26f', 1, 16);
+      px(ctx, 2, 2, '#fff5d6', 3, 1);
+      px(ctx, 10, 10, '#fff5d6', 3, 1);
       break;
     }
 
     case 'path_gold': {
-      fillNoise(ctx, rng, ['#ebd59e', '#dfc484', '#f4e2b3', '#cfb16d']);
-      // Cobble mortar lines inlaid with warm gold flecks
-      px(ctx, 0, 0, '#c29f59', 16, 1);
-      px(ctx, 0, 8, '#c29f59', 16, 1);
-      px(ctx, 7, 0, '#c29f59', 1, 8);
-      px(ctx, 3, 8, '#c29f59', 1, 8);
-      px(ctx, 12, 8, '#c29f59', 1, 8);
-      px(ctx, 2, 2, '#ffe066', 2, 1);
-      px(ctx, 10, 4, '#ffe066', 2, 1);
-      px(ctx, 6, 11, '#ffe066', 2, 1);
+      // Clean Dark-Slate City Asphalt Road with Subtle Yellow Center Dash
+      fillNoise(ctx, rng, ['#343a46', '#2f3540', '#3a414e']);
+      px(ctx, 0, 0, '#495057', 16, 1);
+      px(ctx, 0, 15, '#495057', 16, 1);
+      px(ctx, 5, 7, '#ffd43b', 6, 2);
       break;
     }
 
     case 'hub_plaza': {
-      fillNoise(ctx, rng, ['#f6e9c3', '#edd9a6', '#fbf1d4']);
-      // Golden border + cute center star tile
-      px(ctx, 0, 0, '#e3be68', 16, 1);
-      px(ctx, 0, 15, '#e3be68', 16, 1);
-      px(ctx, 0, 0, '#e3be68', 1, 16);
-      px(ctx, 15, 0, '#e3be68', 1, 16);
+      // Clean Smooth Cream-White Quartz Marble Plaza Tile (JJ's $100K Rich Side)
+      fillNoise(ctx, rng, ['#f8f4e8', '#f2ecdc', '#fcf9f0']);
+      px(ctx, 0, 0, '#e3cfa1', 16, 1);
+      px(ctx, 0, 15, '#e3cfa1', 16, 1);
+      px(ctx, 0, 0, '#e3cfa1', 1, 16);
+      px(ctx, 15, 0, '#e3cfa1', 1, 16);
+      px(ctx, 6, 6, '#f3d98b', 4, 4);
+      px(ctx, 7, 7, '#fff9db', 2, 2);
+      break;
+    }
+
+    case 'lucky_block': {
+      // Golden Happy Meal '?' Surprise Box (McDonald's Red + Golden Arches + '?')
+      fillNoise(ctx, rng, ['#e01e2b', '#c91420', '#f02e3a']);
+      // Golden Arches frame
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
+      px(ctx, 0, 14, '#e69d00', 16, 2);
+      px(ctx, 0, 0, '#ffd43b', 2, 16);
+      px(ctx, 14, 0, '#e69d00', 2, 16);
+      const qRows = [
+        '..YYYY..',
+        '.YYYYYYS',
+        '.YY..YYS',
+        '....YYYS',
+        '...YYYS.',
+        '...YYS..',
+        '...SSS..',
+        '...YY...',
+        '...YYS..',
+        '....SS..',
+      ];
+      drawBitmap(ctx, qRows, { Y: '#fff3a1', S: '#7c2d00' }, 4, 3);
+      drawBitmap(emCtx, qRows, { Y: '#ffe066', S: '#331000' }, 4, 3);
+      px(emCtx, 0, 0, '#7a5c00', 16, 2);
+      px(emCtx, 0, 14, '#7a5c00', 16, 2);
+      break;
+    }
+
+    case 'flower_red_top': {
+      // Crispy Golden French Fries Top (overflowing golden fries)
+      fillNoise(ctx, rng, ['#c9182b', '#e0243c']);
+      for (let x = 2; x <= 12; x += 2) {
+        px(ctx, x, 2, x % 4 === 0 ? '#ffe066' : '#fab005', 2, 12);
+        px(ctx, x, 2, '#fff9db', 1, 3);
+      }
+      break;
+    }
+
+    case 'flower_red_side': {
+      // Red McDonald's Fry Carton Side with Golden Fries sticking out top
+      fillNoise(ctx, rng, ['#d91e2a', '#c41622', '#eb2835'], 0, 5, 16, 11);
+      fillNoise(ctx, rng, ['#2b303c', '#363c4a'], 0, 0, 16, 5);
+      for (let x = 1; x < 15; x += 2) {
+        const fh = (x % 4 === 1) ? 0 : 1;
+        px(ctx, x, fh, '#ffd43b', 2, 6 - fh);
+        px(ctx, x, fh, '#fff3a1', 1, 2);
+      }
+      // Golden 'M' arch on red carton
       drawBitmap(
         ctx,
         [
-          '..GG..',
-          '.GYYG.',
-          'GYYYYG',
-          'GYYYYG',
-          '.GYYG.',
-          '..GG..',
+          '.YY..YY.',
+          'Y..YY..Y',
+          'Y..YY..Y',
+          'Y......Y',
         ],
-        { G: '#f2b728', Y: '#ffe97d' },
-        5,
+        { Y: '#ffd43b' },
+        4,
+        9
+      );
+      break;
+    }
+
+    case 'flower_sun_top': {
+      // Sesame Cheeseburger Bun Top
+      fillNoise(ctx, rng, ['#e69938', '#d98826', '#f2a949']);
+      px(ctx, 0, 0, '#b86b14', 16, 1);
+      px(ctx, 0, 15, '#b86b14', 16, 1);
+      px(ctx, 0, 0, '#b86b14', 1, 16);
+      px(ctx, 15, 0, '#b86b14', 1, 16);
+      // Sesame seeds
+      px(ctx, 3, 3, '#fff9db', 2, 1);
+      px(ctx, 10, 4, '#fff9db', 2, 1);
+      px(ctx, 6, 7, '#fff9db', 2, 1);
+      px(ctx, 11, 10, '#fff9db', 2, 1);
+      px(ctx, 4, 12, '#fff9db', 2, 1);
+      break;
+    }
+
+    case 'flower_sun_side': {
+      // Double Cheeseburger Layers Side (Bun -> Lettuce -> Tomato -> Melted Cheese -> Beef Patty -> Bottom Bun)
+      px(ctx, 0, 0, '#e69938', 16, 4); // Top bun
+      px(ctx, 0, 4, '#51cf66', 16, 2); // Crisp lettuce
+      px(ctx, 0, 6, '#e03131', 16, 2); // Tomato slice
+      px(ctx, 0, 8, '#ffd43b', 16, 2); // Melted yellow cheese
+      px(ctx, 0, 10, '#6b3416', 16, 3); // Sizzling beef patty
+      px(ctx, 0, 13, '#d98826', 16, 3); // Bottom bun
+      // Cheese corners dripping
+      px(ctx, 3, 10, '#ffd43b', 2, 2);
+      px(ctx, 11, 10, '#ffd43b', 2, 2);
+      break;
+    }
+
+    case 'oak_bark': {
+      // Tung Tung Sahur Kentungan Slit-Drum Block Side
+      for (let x = 0; x < 16; x++) {
+        const col = x % 4 === 0 ? '#7c451e' : x % 2 === 0 ? '#9c5a2b' : '#b56c37';
+        px(ctx, x, 0, col, 1, 16);
+      }
+      // Golden rhythm bands + vertical acoustic slit
+      px(ctx, 0, 1, '#ffd43b', 16, 2);
+      px(ctx, 0, 13, '#ffd43b', 16, 2);
+      px(ctx, 6, 4, '#2b1406', 4, 8);
+      break;
+    }
+
+    case 'oak_top': {
+      // Kentungan Drumhead Top
+      px(ctx, 0, 0, '#7c451e', 16, 16);
+      px(ctx, 2, 2, '#ffd43b', 12, 12);
+      px(ctx, 4, 4, '#f3d9a4', 8, 8);
+      px(ctx, 7, 7, '#9c5a2b', 2, 2);
+      break;
+    }
+
+    case 'spruce_bark': {
+      // Mikey's $1 Mossy Cobble & Wooden Crate Side
+      fillNoise(ctx, rng, ['#525864', '#434852', '#646b78']);
+      px(ctx, 0, 0, '#6e4e2e', 16, 2);
+      px(ctx, 0, 14, '#6e4e2e', 16, 2);
+      px(ctx, 0, 0, '#6e4e2e', 2, 16);
+      px(ctx, 14, 0, '#6e4e2e', 2, 16);
+      px(ctx, 3, 5, '#51cf66', 4, 2);
+      px(ctx, 9, 10, '#51cf66', 4, 2);
+      break;
+    }
+
+    case 'spruce_top': {
+      fillNoise(ctx, rng, ['#525864', '#434852', '#646b78']);
+      px(ctx, 0, 0, '#6e4e2e', 16, 2);
+      px(ctx, 0, 14, '#6e4e2e', 16, 2);
+      px(ctx, 0, 0, '#6e4e2e', 2, 16);
+      px(ctx, 14, 0, '#6e4e2e', 2, 16);
+      break;
+    }
+
+    case 'leaves_lush': {
+      // Glowing Red & Gold McDonald's Sign Block
+      fillNoise(ctx, rng, ['#d91e2a', '#c41622', '#e82936']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
+      drawBitmap(
+        ctx,
+        [
+          '..YY..YY..',
+          '.Y..YY..Y.',
+          'Y...YY...Y',
+          'Y...YY...Y',
+          'Y........Y',
+          'Y........Y',
+        ],
+        { Y: '#ffe066' },
+        3,
         5
       );
       break;
     }
 
-    case 'lucky_block': {
-      // Diagonal rainbow bands + golden bevel + crisp pixel '?'
-      const rainbow = ['#ff4d6d', '#ff922b', '#ffd43b', '#51cf66', '#22b8cf', '#845ef7'];
-      for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 16; x++) {
-          const band = Math.floor((x + y) / 3) % rainbow.length;
-          px(ctx, x, y, rainbow[band]);
-        }
-      }
-      // Golden frame
-      px(ctx, 0, 0, '#ffe066', 16, 2);
-      px(ctx, 0, 14, '#e69d00', 16, 2);
-      px(ctx, 0, 0, '#ffd43b', 2, 16);
-      px(ctx, 14, 0, '#e69d00', 2, 16);
-      px(ctx, 1, 1, '#fff9db', 1, 1);
-      px(ctx, 14, 1, '#fff9db', 1, 1);
-
-      const qRows = [
-        '..WWWW..',
-        '.WWWWWWS',
-        '.WW..WWS',
-        '....WWWS',
-        '...WWWS.',
-        '...WWS..',
-        '...SSS..',
-        '...WW...',
-        '...WWS..',
-        '....SS..',
-      ];
-      drawBitmap(ctx, qRows, { W: '#ffffff', S: '#7c4300' }, 4, 3);
-      drawBitmap(emCtx, qRows, { W: '#fff4b8', S: '#332000' }, 4, 3);
-      px(emCtx, 0, 0, '#664d14', 16, 2);
-      px(emCtx, 0, 14, '#664d14', 16, 2);
-      break;
-    }
-
-    case 'flower_red_top': {
-      fillNoise(ctx, rng, ['#e0243c', '#f73b52', '#c81930']);
-      drawBitmap(
-        ctx,
-        [
-          '..RRRRRRRRRR..',
-          '.RPPPPPPPPPRR.',
-          'RPPPRRRRRRPPPR',
-          'RPPRYYYYYYRPPR',
-          'RPRYYYYYYYYRPR',
-          'RPRYYGGGGYYRPR',
-          'RPRYYGGGGYYRPR',
-          'RPRYYYYYYYYRPR',
-          'RPPRYYYYYYRPPR',
-          'RPPPRRRRRRPPPR',
-          '.RPPPPPPPPPRR.',
-          '..RRRRRRRRRR..',
-        ],
-        { R: '#c9182b', P: '#ff6b7d', Y: '#ffe066', G: '#ff922b' },
-        1,
-        2
-      );
-      break;
-    }
-
-    case 'flower_red_side': {
-      fillNoise(ctx, rng, ['#37b24d', '#2f9e44', '#40c057'], 0, 8, 16, 8);
-      fillNoise(ctx, rng, ['#f03e52', '#ff6b7d', '#d62238'], 0, 0, 16, 9);
-      for (let x = 0; x < 16; x += 4) {
-        px(ctx, x + 1, 8, '#ff6b7d', 2, 3);
-        px(ctx, x, 11, '#51cf66', 2, 5);
-      }
-      break;
-    }
-
-    case 'flower_sun_top': {
-      fillNoise(ctx, rng, ['#fab005', '#ffd43b', '#ffec78']);
-      drawBitmap(
-        ctx,
-        [
-          '..YYYYYYYYYY..',
-          '.YLLLLLLLLLLY.',
-          'YLLBBBBBBBBLLY',
-          'YLBBBBBBBBBBBY',
-          'YLBBDDDDDDBBLY',
-          'YLBBDDDDDDBBLY',
-          'YLBBBBBBBBBBBY',
-          'YLLBBBBBBBBLLY',
-          '.YLLLLLLLLLLY.',
-          '..YYYYYYYYYY..',
-        ],
-        { Y: '#f59f00', L: '#fff08a', B: '#8a5021', D: '#5c3210' },
-        1,
-        3
-      );
-      break;
-    }
-
-    case 'flower_sun_side': {
-      fillNoise(ctx, rng, ['#40c057', '#2f9e44', '#51cf66'], 0, 8, 16, 8);
-      fillNoise(ctx, rng, ['#ffd43b', '#fcc419', '#ffe875'], 0, 0, 16, 9);
-      for (let x = 0; x < 16; x += 4) {
-        px(ctx, x + 1, 8, '#ffe066', 2, 3);
-      }
-      break;
-    }
-
-    case 'oak_bark': {
-      for (let x = 0; x < 16; x++) {
-        const col = x % 4 === 0 ? '#5e3c1e' : x % 2 === 0 ? '#7c522b' : '#8f6136';
-        px(ctx, x, 0, col, 1, 16);
-      }
-      for (let i = 0; i < 18; i++) {
-        px(ctx, rng.int(0, 15), rng.int(0, 15), rng.pick(['#4d3016', '#a47345']), 1, 2);
-      }
-      break;
-    }
-
-    case 'oak_top': {
-      px(ctx, 0, 0, '#6b4423', 16, 16);
-      px(ctx, 2, 2, '#cca468', 12, 12);
-      px(ctx, 4, 4, '#b08648', 8, 8);
-      px(ctx, 5, 5, '#dfc08a', 6, 6);
-      px(ctx, 7, 7, '#8f6531', 2, 2);
-      break;
-    }
-
-    case 'spruce_bark': {
-      for (let x = 0; x < 16; x++) {
-        const col = x % 4 === 0 ? '#362216' : x % 2 === 0 ? '#4d3221' : '#5e3e2a';
-        px(ctx, x, 0, col, 1, 16);
-      }
-      for (let i = 0; i < 14; i++) {
-        px(ctx, rng.int(0, 15), rng.int(0, 15), rng.pick(['#29190f', '#75513a', '#a5e8f7']), 1, 1);
-      }
-      break;
-    }
-
-    case 'spruce_top': {
-      px(ctx, 0, 0, '#3d2719', 16, 16);
-      px(ctx, 2, 2, '#ab8454', 12, 12);
-      px(ctx, 4, 4, '#8c663b', 8, 8);
-      px(ctx, 6, 6, '#c7a272', 4, 4);
-      break;
-    }
-
-    case 'leaves_lush': {
-      fillNoise(ctx, rng, ['#2f9e44', '#37b24d', '#40c057', '#2b8a3e', '#5ccf68']);
-      px(ctx, 3, 3, '#96f29c');
-      px(ctx, 11, 6, '#ff8787');
-      px(ctx, 6, 12, '#ffe066');
-      px(ctx, 13, 13, '#96f29c');
-      break;
-    }
-
     case 'leaves_frost': {
-      fillNoise(ctx, rng, ['#2c8fa3', '#3ca8bd', '#5bc4d6', '#e3f8ff', '#ffffff']);
-      px(ctx, 0, 0, '#f0fbff', 16, 3);
-      px(ctx, 2, 3, '#ffffff', 3, 2);
-      px(ctx, 10, 3, '#ffffff', 4, 2);
+      // JJ's $100K Cyan Diamond Glass Skyscraper Block
+      fillNoise(ctx, rng, ['#15aabf', '#22b8cf', '#3bc9db', '#99e9f2']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
+      px(ctx, 0, 0, '#ffd43b', 2, 16);
+      px(ctx, 14, 0, '#ffd43b', 2, 16);
+      px(ctx, 4, 4, '#ffffff', 3, 3);
+      px(ctx, 9, 9, '#e3fafc', 3, 3);
       break;
     }
 
     case 'hay_side': {
+      // Crispy Chicken McNuggets Golden Box Side
       for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {
-          px(ctx, x, y, (x + y * 2) % 3 === 0 ? '#eab82e' : '#ffd859');
+          px(ctx, x, y, (x + y * 2) % 3 === 0 ? '#e6992e' : '#ffd447');
         }
       }
-      px(ctx, 0, 4, '#e03131', 16, 2);
-      px(ctx, 0, 10, '#e03131', 16, 2);
-      px(ctx, 0, 5, '#b02020', 16, 1);
-      px(ctx, 0, 11, '#b02020', 16, 1);
+      px(ctx, 0, 4, '#d91e2a', 16, 3);
+      px(ctx, 0, 11, '#d91e2a', 16, 2);
+      px(ctx, 5, 5, '#fff9db', 6, 1);
       break;
     }
 
     case 'hay_top': {
-      fillNoise(ctx, rng, ['#f2c238', '#ffd95e', '#dfb028', '#ffe688']);
-      px(ctx, 2, 7, '#e03131', 12, 2);
-      px(ctx, 7, 2, '#e03131', 2, 12);
+      fillNoise(ctx, rng, ['#e6992e', '#ffd447', '#d98218', '#ffe066']);
+      px(ctx, 2, 6, '#d91e2a', 12, 4);
+      px(ctx, 5, 7, '#ffd43b', 6, 2);
       break;
     }
 
     case 'pumpkin_side': {
-      for (let x = 0; x < 16; x++) {
-        const rib = x % 4 === 0 ? '#d95c0e' : x % 4 === 2 ? '#ff9938' : '#f27818';
-        px(ctx, x, 0, rib, 1, 16);
-      }
-      px(ctx, 0, 0, '#e06612', 16, 1);
-      px(ctx, 0, 15, '#c7500a', 16, 1);
+      // Mikey's Smelly Green Rotten-Burger Block Side
+      px(ctx, 0, 0, '#7a9e35', 16, 4); // Moldy green top bun
+      px(ctx, 0, 4, '#51cf66', 16, 3); // Slimy green lettuce
+      px(ctx, 0, 7, '#a9e34b', 16, 2); // Sour green cheese
+      px(ctx, 0, 9, '#49592a', 16, 4); // Rotten green patty
+      px(ctx, 0, 13, '#6c8c2d', 16, 3); // Moldy bottom bun
       break;
     }
 
     case 'pumpkin_front': {
-      for (let x = 0; x < 16; x++) {
-        const rib = x % 4 === 0 ? '#d95c0e' : x % 4 === 2 ? '#ff9938' : '#f27818';
-        px(ctx, x, 0, rib, 1, 16);
-      }
-      // Happy friendly smiling pumpkin face
+      // Mikey's Smelly Green Rotten-Burger Block Front (Silly green face!)
+      px(ctx, 0, 0, '#7a9e35', 16, 4);
+      px(ctx, 0, 4, '#5c940d', 16, 9);
+      px(ctx, 0, 13, '#6c8c2d', 16, 3);
       const face = [
         '..GGG.....GGG..',
         '.GYYYG...GYYYG.',
@@ -392,170 +381,177 @@ function paintTile(name, ctx, emCtx, rng) {
         '...GYYYYYYYYG..',
         '....GGGGGGGG...',
       ];
-      drawBitmap(ctx, face, { G: '#7a2e00', Y: '#fff3a1' }, 0, 4);
-      drawBitmap(emCtx, face, { G: '#220b00', Y: '#ffd43b' }, 0, 4);
+      drawBitmap(ctx, face, { G: '#1e2e05', Y: '#d8f5a2' }, 0, 4);
+      drawBitmap(emCtx, face, { G: '#0b1400', Y: '#94d82d' }, 0, 4);
       break;
     }
 
     case 'pumpkin_top': {
-      fillNoise(ctx, rng, ['#f27818', '#ff9433', '#dc5f10']);
-      px(ctx, 6, 6, '#37b24d', 4, 4);
-      px(ctx, 7, 7, '#69db7c', 2, 2);
+      fillNoise(ctx, rng, ['#7a9e35', '#82c91e', '#5c940d']);
+      px(ctx, 4, 4, '#d8f5a2', 2, 1);
+      px(ctx, 10, 6, '#d8f5a2', 2, 1);
+      px(ctx, 6, 11, '#d8f5a2', 2, 1);
       break;
     }
 
     case 'melon_side': {
+      // Fizzy Red & White Striped Cola Cup Block Side
       for (let x = 0; x < 16; x++) {
-        const stripe = x % 4 === 0 ? '#2b8a3e' : x % 4 === 1 ? '#37b24d' : '#74e382';
-        px(ctx, x, 0, stripe, 1, 16);
+        const isRed = Math.floor(x / 2) % 2 === 0;
+        px(ctx, x, 0, isRed ? '#e02430' : '#fff8eb', 1, 16);
       }
-      for (let i = 0; i < 16; i++) {
-        px(ctx, rng.int(0, 15), rng.int(0, 15), '#51cf66', 1, 1);
-      }
+      px(ctx, 0, 0, '#ffffff', 16, 2); // Plastic lid rim
+      px(ctx, 4, 6, '#ffd43b', 8, 4); // Golden badge
       break;
     }
 
     case 'melon_top': {
-      fillNoise(ctx, rng, ['#37b24d', '#51cf66', '#2b8a3e', '#8ce99a']);
-      px(ctx, 6, 6, '#2b8a3e', 4, 4);
+      // Cola Lid with Red Straw
+      fillNoise(ctx, rng, ['#f1f3f5', '#dee2e6', '#ffffff']);
+      px(ctx, 2, 2, '#adb5bd', 12, 12);
+      px(ctx, 4, 4, '#ffffff', 8, 8);
+      px(ctx, 6, 6, '#e02430', 4, 4); // Straw
       break;
     }
 
     case 'beehive_side': {
-      for (let y = 0; y < 16; y++) {
-        const plank = y % 4 === 0 ? '#c98816' : y % 2 === 0 ? '#f0b429' : '#f7c948';
-        px(ctx, 0, y, plank, 16, 1);
-      }
-      px(ctx, 3, 5, '#ffaa00', 3, 2);
-      px(ctx, 10, 9, '#ffaa00', 3, 2);
+      // Cash Register & Dollar Vault Block Side
+      fillNoise(ctx, rng, ['#ced4da', '#adb5bd', '#e9ecef']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
+      px(ctx, 0, 14, '#495057', 16, 2);
+      px(ctx, 3, 5, '#2b8a3e', 10, 6);
+      px(ctx, 5, 7, '#b2f2bb', 6, 2);
       break;
     }
 
     case 'beehive_front': {
-      for (let y = 0; y < 16; y++) {
-        const plank = y % 4 === 0 ? '#c98816' : y % 2 === 0 ? '#f0b429' : '#f7c948';
-        px(ctx, 0, y, plank, 16, 1);
+      // Cash Register Front with Glowing Green '$$$' Screen & Keypad
+      fillNoise(ctx, rng, ['#ced4da', '#adb5bd', '#e9ecef']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
+      px(ctx, 2, 3, '#1b4332', 12, 5); // Digital screen
+      px(ctx, 4, 4, '#69db7c', 8, 3); // Glowing green readout
+      // Register buttons
+      for (let x = 3; x <= 11; x += 3) {
+        px(ctx, x, 9, '#e03131', 2, 2);
+        px(ctx, x, 12, '#ffd43b', 2, 2);
       }
-      // Honey slot + golden dripping honey
-      px(ctx, 4, 6, '#5c3608', 8, 3);
-      px(ctx, 5, 9, '#ffb703', 6, 2);
-      px(ctx, 6, 11, '#ffd166', 2, 3);
-      px(ctx, 10, 10, '#ffd166', 1, 2);
-      px(emCtx, 5, 9, '#aa7400', 6, 3);
+      px(emCtx, 4, 4, '#51cf66', 8, 3);
       break;
     }
 
     case 'beehive_top': {
-      fillNoise(ctx, rng, ['#f0b429', '#f7c948', '#d9981e']);
-      px(ctx, 1, 1, '#c98816', 14, 1);
-      px(ctx, 1, 14, '#c98816', 14, 1);
+      fillNoise(ctx, rng, ['#dee2e6', '#ced4da', '#f8f9fa']);
+      px(ctx, 1, 1, '#ffd43b', 14, 2);
+      px(ctx, 1, 13, '#ffd43b', 14, 2);
       break;
     }
 
     case 'ice_crystal': {
+      // JJ's $100,000 Sparkling Cyan Diamond Block
       for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {
           const d = Math.abs(x - 7.5) + Math.abs(y - 7.5);
-          const col = d < 4 ? '#ffffff' : d < 7 ? '#99f6ff' : d < 10 ? '#3de0ff' : '#15aabf';
+          const col = d < 4 ? '#ffffff' : d < 7 ? '#a5f3fc' : d < 10 ? '#22d3ee' : '#0891b2';
           px(ctx, x, y, col);
         }
       }
+      px(ctx, 0, 0, '#ffd43b', 16, 1);
+      px(ctx, 0, 15, '#ffd43b', 16, 1);
       px(ctx, 3, 3, '#ffffff', 2, 2);
-      px(ctx, 11, 10, '#cbfbff', 2, 2);
-      px(emCtx, 3, 3, '#52d9f7', 10, 10);
+      px(emCtx, 3, 3, '#38d9f5', 10, 10);
       break;
     }
 
     case 'snow_top': {
-      fillNoise(ctx, rng, ['#f2fbff', '#e4f6ff', '#ffffff', '#d8effc']);
-      px(ctx, 4, 4, '#ffffff', 2, 1);
-      px(ctx, 11, 9, '#ffffff', 2, 1);
+      // Robber's Heist Brushed Steel & Slate Vault Tile (Clean, zero dot clutter)
+      fillNoise(ctx, rng, ['#5c6778', '#535d6e', '#657184']);
+      px(ctx, 0, 0, '#788599', 16, 1);
+      px(ctx, 0, 0, '#788599', 1, 16);
+      px(ctx, 0, 15, '#434c59', 16, 1);
+      px(ctx, 15, 0, '#434c59', 1, 16);
       break;
     }
 
     case 'snow_side': {
-      fillNoise(ctx, rng, ['#7b8fa6', '#697d94', '#8ea3ba']);
-      fillNoise(ctx, rng, ['#f2fbff', '#ffffff', '#dff3ff'], 0, 0, 16, 6);
-      const drips = [6, 8, 7, 5, 6, 9, 7, 6, 5, 7, 8, 6, 5, 7, 6, 6];
-      for (let x = 0; x < 16; x++) {
-        px(ctx, x, 5, '#f2fbff', 1, drips[x] - 5);
-        px(ctx, x, drips[x], '#bae6fd', 1, 1);
+      // Steel Heist Vault Wall with Black & Yellow Caution Stripe
+      fillNoise(ctx, rng, ['#343a46', '#2c313c', '#434a59']);
+      for (let x = 0; x < 16; x += 4) {
+        px(ctx, x, 0, '#ffd43b', 2, 4);
+        px(ctx, x + 2, 0, '#212529', 2, 4);
       }
+      px(ctx, 0, 4, '#adb5bd', 16, 1);
       break;
     }
 
     case 'castle_brick': {
-      fillNoise(ctx, rng, ['#ddd6e8', '#cec5dc', '#eae4f2']);
-      // Masonry lines with royal gold trim
-      px(ctx, 0, 0, '#d9a926', 16, 1);
-      px(ctx, 0, 8, '#a79db8', 16, 1);
-      px(ctx, 7, 1, '#a79db8', 1, 7);
-      px(ctx, 15, 9, '#a79db8', 1, 7);
-      px(ctx, 2, 2, '#ffd43b', 3, 1);
-      px(ctx, 10, 10, '#ffd43b', 3, 1);
+      // Clean Cyan-Diamond & White Marble Hilltop Tile (JJ's $100,000 Hilltop)
+      fillNoise(ctx, rng, ['#e3fafc', '#cef4f9', '#f0fcff']);
+      px(ctx, 0, 0, '#66d9e8', 16, 1);
+      px(ctx, 0, 15, '#66d9e8', 16, 1);
+      px(ctx, 0, 0, '#66d9e8', 1, 16);
+      px(ctx, 15, 0, '#66d9e8', 1, 16);
+      px(ctx, 5, 5, '#3bc9db', 6, 6);
+      px(ctx, 6, 6, '#ffd43b', 4, 4);
       break;
     }
 
     case 'furnace_side': {
-      fillNoise(ctx, rng, ['#49445c', '#3d384f', '#57516d']);
-      px(ctx, 0, 0, '#ffd43b', 16, 2);
-      px(ctx, 0, 14, '#e0a81e', 16, 2);
-      px(ctx, 7, 2, '#322e42', 2, 12);
+      // Sizzling Kitchen Burger Grill Side
+      fillNoise(ctx, rng, ['#495057', '#343a40', '#6c757d']);
+      px(ctx, 0, 0, '#e02430', 16, 2);
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
+      px(ctx, 7, 2, '#212529', 2, 12);
       break;
     }
 
     case 'furnace_front': {
-      fillNoise(ctx, rng, ['#49445c', '#3d384f', '#57516d']);
-      px(ctx, 0, 0, '#ffd43b', 16, 2);
-      px(ctx, 0, 14, '#e0a81e', 16, 2);
-      // Blazing royal hearth
-      px(ctx, 3, 4, '#241e30', 10, 9);
-      px(ctx, 4, 5, '#ff6b1a', 8, 7);
-      px(ctx, 5, 6, '#ffb703', 6, 5);
-      px(ctx, 6, 8, '#fff7bd', 4, 3);
-      // Gold grate bars
-      px(ctx, 6, 4, '#ffd43b', 1, 9);
-      px(ctx, 9, 4, '#ffd43b', 1, 9);
-      px(emCtx, 4, 5, '#ff8822', 8, 7);
-      px(emCtx, 6, 7, '#fff099', 4, 4);
+      // Sizzling Kitchen Burger Grill Front with Glowing Flame Window
+      fillNoise(ctx, rng, ['#495057', '#343a40', '#6c757d']);
+      px(ctx, 0, 0, '#e02430', 16, 2);
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
+      px(ctx, 2, 4, '#212529', 12, 9);
+      px(ctx, 3, 5, '#ff6b1a', 10, 7);
+      px(ctx, 4, 6, '#ffd43b', 8, 5);
+      px(ctx, 5, 8, '#6b3416', 6, 2); // Burger patty on grill!
+      px(emCtx, 3, 5, '#ff8822', 10, 7);
+      px(emCtx, 5, 6, '#fff099', 6, 4);
       break;
     }
 
     case 'amethyst': {
+      // Secret Underground 24K Gold Vault Bullion Stack
       for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 16; x++) {
-          const v = ((x * 3 + y * 5) % 7);
-          const col = v === 0 ? '#f3d9fa' : v < 3 ? '#cc5de8' : v < 5 ? '#9c36b5' : '#702499';
-          px(ctx, x, y, col);
-        }
+        const band = y % 4;
+        const col = band === 0 ? '#fff3a1' : band === 1 ? '#ffd43b' : band === 2 ? '#f59f00' : '#b86b14';
+        px(ctx, 0, y, col, 16, 1);
       }
-      px(ctx, 3, 4, '#ffffff', 2, 2);
-      px(ctx, 10, 3, '#f3d9fa', 2, 2);
-      px(ctx, 11, 11, '#ffffff', 2, 2);
-      px(emCtx, 2, 2, '#8b35b8', 12, 12);
+      px(ctx, 7, 0, '#b86b14', 2, 16);
+      px(ctx, 2, 1, '#ffffff', 3, 1);
+      px(ctx, 10, 5, '#ffffff', 3, 1);
+      px(ctx, 3, 9, '#ffffff', 3, 1);
+      px(emCtx, 1, 1, '#996e00', 14, 14);
       break;
     }
 
     case 'bedrock_gold': {
-      fillNoise(ctx, rng, ['#343046', '#46415c', '#292538', '#524c6b']);
-      px(ctx, 0, 0, '#ffd43b', 16, 2);
-      px(ctx, 0, 14, '#e6a817', 16, 2);
-      px(ctx, 2, 5, '#ffd43b', 3, 2);
-      px(ctx, 9, 8, '#ffe066', 4, 2);
-      px(ctx, 5, 11, '#ffd43b', 3, 1);
-      px(emCtx, 2, 5, '#7a5c00', 3, 2);
-      px(emCtx, 9, 8, '#7a5c00', 4, 2);
+      // McDonald's Crimson & 24K Gold Architectural Trim
+      fillNoise(ctx, rng, ['#b81420', '#9e101a', '#d01c2a']);
+      px(ctx, 0, 0, '#ffd43b', 16, 3);
+      px(ctx, 0, 13, '#ffd43b', 16, 3);
+      px(ctx, 2, 6, '#ffe066', 4, 3);
+      px(ctx, 10, 6, '#ffe066', 4, 3);
+      px(emCtx, 2, 6, '#7a5c00', 4, 3);
+      px(emCtx, 10, 6, '#7a5c00', 4, 3);
       break;
     }
 
     case 'mega_titan_side': {
-      fillNoise(ctx, rng, ['#3b2e58', '#4c3b70', '#2d2245']);
-      // Bold golden-rainbow border
+      // 2x2x2 Giant Golden Drive-Thru Boss Speaker Cube
+      fillNoise(ctx, rng, ['#b81420', '#d91e2a', '#8a0e17']);
       px(ctx, 0, 0, '#ffd43b', 16, 2);
-      px(ctx, 0, 14, '#ff922b', 16, 2);
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
       px(ctx, 0, 0, '#ffd43b', 2, 16);
-      px(ctx, 14, 0, '#ff922b', 2, 16);
-      // Pixel Crown + Exclamation emblem
+      px(ctx, 14, 0, '#ffd43b', 2, 16);
       const emblem = [
         '.Y...Y...Y.',
         '.YY.YYY.YY.',
@@ -574,66 +570,88 @@ function paintTile(name, ctx, emCtx, rng) {
     }
 
     case 'mega_titan_top': {
-      fillNoise(ctx, rng, ['#4c3b70', '#3b2e58']);
+      fillNoise(ctx, rng, ['#d91e2a', '#b81420']);
       px(ctx, 0, 0, '#ffd43b', 16, 2);
       px(ctx, 0, 14, '#ffd43b', 16, 2);
       px(ctx, 0, 0, '#ffd43b', 2, 16);
       px(ctx, 14, 0, '#ffd43b', 2, 16);
-      px(ctx, 4, 4, '#ff6b6b', 8, 8);
-      px(ctx, 6, 6, '#ffe066', 4, 4);
-      px(emCtx, 5, 5, '#ffaa33', 6, 6);
+      px(ctx, 4, 4, '#ffe066', 8, 8);
+      px(ctx, 6, 6, '#ffffff', 4, 4);
+      px(emCtx, 4, 4, '#ffaa33', 8, 8);
       break;
     }
 
     case 'chest_front': {
-      fillNoise(ctx, rng, ['#e09124', '#cf7f17', '#eda338']);
-      px(ctx, 0, 0, '#ffe066', 16, 2);
+      // Giant Happy Meal Mystery Kiosk Box Front (Red + Golden Arches Clasp)
+      fillNoise(ctx, rng, ['#e01e2b', '#c91420', '#f02e3a']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
       px(ctx, 0, 14, '#ffd43b', 16, 2);
       px(ctx, 0, 0, '#ffd43b', 2, 16);
       px(ctx, 14, 0, '#ffd43b', 2, 16);
-      px(ctx, 0, 5, '#66390a', 16, 2);
-      // Chunky golden latch with bright ruby heart-gem clasp
-      px(ctx, 5, 3, '#fff3a1', 6, 7);
-      px(ctx, 6, 4, '#ff2a55', 4, 5);
-      px(ctx, 7, 5, '#ff8fa3', 2, 2);
-      px(emCtx, 5, 3, '#aa7700', 6, 7);
-      px(emCtx, 6, 4, '#ff3366', 4, 5);
+      drawBitmap(
+        ctx,
+        [
+          '.YYY..YYY.',
+          'YY.YYYY.YY',
+          'YY..YY..YY',
+          'YY..YY..YY',
+          'YY......YY',
+          'YY......YY',
+        ],
+        { Y: '#ffe066' },
+        3,
+        5
+      );
+      drawBitmap(
+        emCtx,
+        [
+          '.YYY..YYY.',
+          'YY.YYYY.YY',
+          'YY..YY..YY',
+          'YY..YY..YY',
+          'YY......YY',
+          'YY......YY',
+        ],
+        { Y: '#ffb703' },
+        3,
+        5
+      );
       break;
     }
 
     case 'chest_side': {
-      fillNoise(ctx, rng, ['#e09124', '#cf7f17', '#eda338']);
-      px(ctx, 0, 0, '#ffe066', 16, 2);
+      fillNoise(ctx, rng, ['#e01e2b', '#c91420', '#f02e3a']);
+      px(ctx, 0, 0, '#ffd43b', 16, 2);
       px(ctx, 0, 14, '#ffd43b', 16, 2);
       px(ctx, 0, 0, '#ffd43b', 2, 16);
       px(ctx, 14, 0, '#ffd43b', 2, 16);
-      px(ctx, 0, 5, '#66390a', 16, 2);
+      px(ctx, 4, 6, '#ffd43b', 8, 4);
       break;
     }
 
     case 'chest_top': {
-      fillNoise(ctx, rng, ['#f0a63a', '#e09124', '#f7b952']);
-      px(ctx, 0, 0, '#ffe066', 16, 2);
-      px(ctx, 0, 14, '#ffd43b', 16, 2);
-      px(ctx, 0, 0, '#ffd43b', 2, 16);
-      px(ctx, 14, 0, '#ffd43b', 2, 16);
-      px(ctx, 6, 2, '#fff3a1', 4, 12);
-      px(ctx, 7, 6, '#39d5ff', 2, 4);
-      px(emCtx, 6, 2, '#664d00', 4, 12);
+      fillNoise(ctx, rng, ['#ffd43b', '#f59f00', '#ffe066']);
+      px(ctx, 0, 0, '#e01e2b', 16, 2);
+      px(ctx, 0, 14, '#e01e2b', 16, 2);
+      px(ctx, 0, 0, '#e01e2b', 2, 16);
+      px(ctx, 14, 0, '#e01e2b', 2, 16);
+      px(ctx, 5, 3, '#fff9db', 6, 10);
+      px(emCtx, 5, 3, '#996e00', 6, 10);
       break;
     }
 
     case 'water': {
-      fillNoise(ctx, rng, ['#22b8e6', '#2fc4f0', '#1aa8d6', '#4dd2f7']);
-      px(ctx, 2, 3, '#a5f3fc', 4, 1);
-      px(ctx, 9, 8, '#ccfbf1', 5, 1);
-      px(ctx, 4, 13, '#a5f3fc', 4, 1);
+      // Clean Smooth Dark-Slate City Highway Grid
+      fillNoise(ctx, rng, ['#262b36', '#222731', '#2a303c']);
+      px(ctx, 0, 0, '#323846', 16, 1);
+      px(ctx, 0, 0, '#323846', 1, 16);
+      px(ctx, 6, 7, '#495057', 4, 2);
       break;
     }
 
     case 'lantern_glow': {
-      px(ctx, 0, 0, '#e09f1f', 16, 16);
-      px(ctx, 2, 2, '#ffe066', 12, 12);
+      px(ctx, 0, 0, '#e02430', 16, 16);
+      px(ctx, 2, 2, '#ffd43b', 12, 12);
       px(ctx, 4, 4, '#fff9db', 8, 8);
       px(emCtx, 1, 1, '#ffd43b', 14, 14);
       px(emCtx, 4, 4, '#ffffff', 8, 8);
@@ -641,27 +659,29 @@ function paintTile(name, ctx, emCtx, rng) {
     }
 
     case 'mushroom_red': {
-      fillNoise(ctx, rng, ['#e03131', '#f03e3e', '#c92a2a']);
-      px(ctx, 2, 3, '#fff9db', 3, 3);
-      px(ctx, 10, 2, '#fff9db', 3, 3);
-      px(ctx, 6, 9, '#fff9db', 4, 3);
-      px(ctx, 11, 11, '#fff9db', 2, 2);
+      // Red & White Striped McDonald's Awning Block
+      for (let x = 0; x < 16; x++) {
+        const isRed = Math.floor(x / 4) % 2 === 0;
+        px(ctx, x, 0, isRed ? '#e01e2b' : '#fff8eb', 1, 16);
+      }
+      px(ctx, 0, 14, '#ffd43b', 16, 2);
       break;
     }
 
     case 'snowman_face': {
-      fillNoise(ctx, rng, ['#f2fbff', '#ffffff', '#e6f6ff']);
-      px(ctx, 4, 5, '#212529', 2, 2);
-      px(ctx, 10, 5, '#212529', 2, 2);
-      px(ctx, 7, 7, '#ff7b1c', 3, 2);
-      px(ctx, 4, 11, '#212529', 2, 1);
-      px(ctx, 6, 12, '#212529', 4, 1);
-      px(ctx, 10, 11, '#212529', 2, 1);
+      // Mikey's Cursed White Pixel Ghost Block (from the $1 Shack Wall!)
+      fillNoise(ctx, rng, ['#f8f9fa', '#ffffff', '#e9ecef']);
+      px(ctx, 3, 4, '#212529', 3, 3);
+      px(ctx, 10, 4, '#212529', 3, 3);
+      px(ctx, 6, 9, '#212529', 4, 4);
+      px(ctx, 1, 13, '#adb5bd', 3, 3);
+      px(ctx, 7, 13, '#adb5bd', 3, 3);
+      px(ctx, 12, 13, '#adb5bd', 3, 3);
       break;
     }
 
     default: {
-      fillNoise(ctx, rng, ['#66d9e8', '#3bc9db']);
+      fillNoise(ctx, rng, ['#ffd43b', '#e01e2b']);
       break;
     }
   }
@@ -673,13 +693,11 @@ export function getAtlasUVRect(tileIdx) {
   const pad = 0.12 / ATLAS_SIZE;
   const u0 = (col * TILE_SIZE) / ATLAS_SIZE + pad;
   const u1 = ((col + 1) * TILE_SIZE) / ATLAS_SIZE - pad;
-  // Canvas y=0 is top; Three.js flipY=true maps v=1 to top of canvas
   const v1 = 1 - (row * TILE_SIZE) / ATLAS_SIZE - pad;
   const v0 = 1 - ((row + 1) * TILE_SIZE) / ATLAS_SIZE + pad;
   return { u0, v0, u1, v1 };
 }
 
-// Creates a unit BoxGeometry(w, h, d) with per-face atlas UV mapping (+x, -x, +y, -y, +z, -z).
 export function createAtlasBoxGeometry(faceTiles, w = 1, h = 1, d = 1) {
   const geo = new THREE.BoxGeometry(w, h, d);
   const uv = geo.attributes.uv;
@@ -694,7 +712,6 @@ export function createAtlasBoxGeometry(faceTiles, w = 1, h = 1, d = 1) {
   for (let f = 0; f < 6; f++) {
     const { u0, v0, u1, v1 } = getAtlasUVRect(tiles[f]);
     const base = f * 4;
-    // BoxGeometry face vertex UV order: (0,1), (1,1), (0,0), (1,0)
     uv.setXY(base + 0, u0, v1);
     uv.setXY(base + 1, u1, v1);
     uv.setXY(base + 2, u0, v0);
@@ -714,7 +731,6 @@ function createRingGlowTexture() {
     for (let x = 0; x < size; x++) {
       const r = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / (size * 0.5);
       if (r > 1) continue;
-      // Bright crisp outer ring + soft inner floor aura
       const ringBand = Math.exp(-Math.pow((r - 0.78) / 0.11, 2));
       const innerFill = r < 0.78 ? 0.24 * (1 - r * 0.5) : 0;
       const alpha = Math.min(1, ringBand * 0.92 + innerFill);
@@ -741,15 +757,22 @@ function createSunTexture() {
     for (let x = 0; x < size; x++) {
       const r = Math.hypot(x + 0.5 - cx, y + 0.5 - cx) / cx;
       if (r < 1) {
-        const glow = Math.pow(Math.max(0, 1 - r), 2.1) * 0.72;
-        ctx.fillStyle = `rgba(255,244,184,${glow.toFixed(3)})`;
+        const glow = Math.pow(Math.max(0, 1 - r), 2.0) * 0.78;
+        ctx.fillStyle = `rgba(255,215,90,${glow.toFixed(3)})`;
         ctx.fillRect(x, y, 1, 1);
       }
     }
   }
-  // Crisp voxel sun square core
+  // Crimson & Gold McDonald's Sky Billboard Sun
+  px(ctx, 18, 18, '#e01e2b', 28, 28);
   px(ctx, 20, 20, '#ffd43b', 24, 24);
-  px(ctx, 23, 23, '#fff9db', 18, 18);
+  px(ctx, 22, 22, '#d91e2a', 20, 20);
+  // Golden Arches 'M' in sky emblem
+  px(ctx, 24, 25, '#fff9db', 3, 14);
+  px(ctx, 30, 27, '#fff9db', 4, 12);
+  px(ctx, 37, 25, '#fff9db', 3, 14);
+  px(ctx, 26, 24, '#fff9db', 5, 3);
+  px(ctx, 33, 24, '#fff9db', 5, 3);
   const tex = new THREE.CanvasTexture(canvas);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.LinearFilter;

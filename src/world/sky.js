@@ -12,11 +12,11 @@ export function createSky(textures) {
   const posAttr = skyGeo.attributes.position;
   const colors = new Float32Array(posAttr.count * 3);
 
-  const zenithCol = new THREE.Color(0x2d98ff);
-  const midSkyCol = new THREE.Color(0x74d6ff);
-  const horizonCol = new THREE.Color(0xdcf7ff);
-  const warmGlowCol = new THREE.Color(0xfff2c2);
-  const seaHorizonCol = new THREE.Color(0x4bcbf0);
+  const zenithCol = new THREE.Color(0x281652);
+  const midSkyCol = new THREE.Color(0xe85268);
+  const horizonCol = new THREE.Color(0xffb74d);
+  const warmGlowCol = new THREE.Color(0xfff08a);
+  const seaHorizonCol = new THREE.Color(0x3a243b);
   const tmpCol = new THREE.Color();
 
   for (let i = 0; i < posAttr.count; i++) {
@@ -105,10 +105,10 @@ export function createSky(textures) {
 
   const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
   const cloudMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: 0xfff6dc,
-    emissiveIntensity: 0.32,
-    roughness: 0.92,
+    color: 0xffe8d6,
+    emissive: 0xff9e5e,
+    emissiveIntensity: 0.36,
+    roughness: 0.9,
     metalness: 0.0,
     fog: false,
   });

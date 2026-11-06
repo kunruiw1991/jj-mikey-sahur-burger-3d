@@ -4,7 +4,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 
 export function createCameraController() {
   const aspect = Math.max(0.3, (window.innerWidth || 1280) / Math.max(1, window.innerHeight || 800));
-  const camera = new THREE.PerspectiveCamera(48, aspect, 0.4, 150);
+  const camera = new THREE.PerspectiveCamera(52, aspect, 0.4, 150);
   camera.up.set(0, 1, 0);
   camera.rotation.order = 'YXZ'; // YXZ prevents roll coupling when pitching down!
 
@@ -82,15 +82,15 @@ export function createCameraController() {
       return;
     }
 
-    // Gentle idle yaw auto-ease behind hero movement after manual drag settles (P1-4)
+    // Gentle idle yaw auto-ease keeping Split-World Left ($1) vs Right ($100K) Boulevard framed after manual drag settles (P1-4)
     if (dragCooldown > 0) {
       dragCooldown = Math.max(0, dragCooldown - clampedDt);
     } else if (Math.hypot(state.player.vx || 0, state.player.vz || 0) > 1.5) {
-      // Behind hero: hero moves along (vx, vz), so camera sits opposite (-vx, -vz)
-      const desiredBehindYaw = Math.atan2(-state.player.vx, -state.player.vz);
+      // Gently sway up to ±0.22 rad toward horizontal movement so Left vs Right Split-World stays clearly framed
+      const desiredBehindYaw = Math.max(-0.22, Math.min(0.22, -state.player.vx * 0.032));
       let diff = desiredBehindYaw - targetYaw;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      targetYaw += diff * Math.min(1, clampedDt * 1.15);
+      targetYaw += diff * Math.min(1, clampedDt * 1.6);
     }
 
     // Smooth yaw interpolation
@@ -98,9 +98,9 @@ export function createCameraController() {
     yaw += yawDiff * Math.min(1, clampedDt * 12);
 
     const p = state.player;
-    let baseDist = isPortrait ? 13.8 : 11.4;
-    let baseHeight = isPortrait ? 8.6 : 7.3;
-    let lookLift = 1.45;
+    let baseDist = isPortrait ? 15.2 : 12.8;
+    let baseHeight = isPortrait ? 9.4 : 8.2;
+    let lookLift = 1.55;
 
     // Frame nearby Giant Titan cleanly so 5yo sees both Hero and Titan's funny face & crown below Boss Banner!
     if (activeTitan && !activeTitan.defeated) {

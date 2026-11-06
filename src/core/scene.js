@@ -45,14 +45,14 @@ export function createSceneContext(canvas) {
   };
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x82dcff);
-  scene.fog = new THREE.Fog(0x9ee8ff, 48, 94);
+  scene.background = new THREE.Color(0xff9e5e);
+  scene.fog = new THREE.Fog(0xffb870, 52, 98);
 
-  const hemiLight = new THREE.HemisphereLight(0xfffdf0, 0x5cc454, 1.18);
+  const hemiLight = new THREE.HemisphereLight(0xfff6e0, 0x7c5844, 1.22);
   hemiLight.position.set(0, 45, 0);
   scene.add(hemiLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff5d6, 1.28);
+  const sunLight = new THREE.DirectionalLight(0xfff0c2, 1.32);
   sunLight.position.set(22, 40, 20);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(512, 512);
@@ -65,7 +65,7 @@ export function createSceneContext(canvas) {
   sunLight.shadow.bias = -0.0008;
   scene.add(sunLight);
 
-  const fillLight = new THREE.DirectionalLight(0xbbe8ff, 0.42);
+  const fillLight = new THREE.DirectionalLight(0xffb38a, 0.46);
   fillLight.position.set(-20, 18, -18);
   scene.add(fillLight);
 
