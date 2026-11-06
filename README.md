@@ -31,3 +31,4 @@ Serve the root directory with any static HTTP server:
 python3 -m http.server 8080
 ```
 Then open http://127.0.0.1:8080 in your browser.
+
