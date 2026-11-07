@@ -159,7 +159,9 @@ def run_static_repo_scan(repo_root: str = REPO_ROOT) -> dict[str, Any]:
 
   for dirpath, dirnames, filenames in os.walk(repo_root):
     dirnames[:] = sorted(
-        d for d in dirnames if d not in ('.git', '__pycache__', 'node_modules', 'tmp_profiles')
+        d
+        for d in dirnames
+        if d not in ('.git', '.agents', '__pycache__', 'node_modules', 'tmp_profiles')
     )
     for fn in sorted(filenames):
       if not fn.lower().endswith(SCANNED_EXTENSIONS):
@@ -241,11 +243,15 @@ def run_runtime_browser_audit() -> dict[str, Any]:
       sess.wait_raf(2)
     stages['02_play'] = audit_runtime_no_cjk(sess)
 
-    # Break Starter Lucky Block (0, 1, 2.0) -> drops + subtitle speaking
+    # Break Starter Lucky Block + Mario Jump + Odyssey Stick Throw -> drops + subtitle speaking
     sess.eval_json(
         """(() => {
           const L = window.__LUCKY_TITAN__;
           L.startGame({ seed: 2026 });
+          L.jump();
+          L.stepFrames(10);
+          L.throwStick();
+          L.stepFrames(55);
           L.breakBlock(0, 1, 2.0);
           L.stepFrames(45);
           L.tapWorld(0, 2.0);

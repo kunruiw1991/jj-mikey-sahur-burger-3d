@@ -144,7 +144,7 @@ AUDIT_LAYOUT_DOM_JS = r"""
   }));
 
   const isPlayState = stateName.startsWith('play_');
-  const maxControlsOk = !isPlayState || (controls.length >= 1 && controls.length <= 5);
+  const maxControlsOk = !isPlayState || (controls.length >= 1 && controls.length <= 6);
 
   // 3. Size floor (>= 72x72, >= 68x68 on 844x390) & viewport bounds check
   const sizeFloor = minControlDim - 0.35;

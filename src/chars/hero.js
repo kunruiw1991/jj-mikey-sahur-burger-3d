@@ -275,6 +275,44 @@ export function createHero(ctx = {}) {
     weaponMeshes.set(wid, wMesh);
   }
 
+  // World-space Odyssey-style Returning Sahur Stick Projectile Group
+  const thrownStickGroup = new THREE.Group();
+  thrownStickGroup.name = 'thrown_sahur_stick';
+  thrownStickGroup.visible = false;
+  thrownStickGroup.position.set(spawn.x, spawn.y + 0.92, spawn.z);
+
+  const spinPivot = new THREE.Group();
+  spinPivot.name = 'thrown_sahur_stick_pivot';
+  thrownStickGroup.add(spinPivot);
+
+  const thrownWeaponMeshes = new Map();
+  for (let i = 0; i < WEAPON_ORDER.length; i++) {
+    const wid = WEAPON_ORDER[i];
+    const wMesh = buildWeaponMesh(wid);
+    wMesh.visible = wid === 'wooden_kentungan_bat';
+    // Orient stick horizontally in the XZ plane for dramatic boomerang spin
+    wMesh.rotation.set(Math.PI * 0.5, 0, 0);
+    wMesh.scale.setScalar(1.35);
+    spinPivot.add(wMesh);
+    thrownWeaponMeshes.set(wid, wMesh);
+  }
+
+  // Glowing golden Sahur boomerang spin ring (toneMapped: false, fog: false)
+  const spinRingGeo = new THREE.RingGeometry(0.45, 0.72, 24);
+  spinRingGeo.rotateX(-Math.PI * 0.5);
+  const spinRingMat = new THREE.MeshBasicMaterial({
+    color: 0xffe066,
+    transparent: true,
+    opacity: 0.78,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    toneMapped: false,
+    fog: false,
+  });
+  const spinRingMesh = new THREE.Mesh(spinRingGeo, spinRingMat);
+  spinRingMesh.name = 'thrown_sahur_spin_ring';
+  spinPivot.add(spinRingMesh);
+
   const cheerStarSprite = new THREE.Sprite(
     createSafeSpriteMaterial({ color: 0xffe066, opacity: 0.0 })
   );
@@ -285,6 +323,7 @@ export function createHero(ctx = {}) {
 
   if (ctx && ctx.scene) {
     ctx.scene.add(group);
+    ctx.scene.add(thrownStickGroup);
   }
 
   const equipment = {
@@ -303,10 +342,15 @@ export function createHero(ctx = {}) {
   let cheerTimer = 0;
   const CHEER_DURATION = 1.10;
   let shieldFlashTimer = 0;
+  let jumpAnimTimer = 0;
+  let landAnimTimer = 0;
 
   function applyEquipmentVisuals() {
     const canonicalWeapon = resolveWeaponId(equipment.weaponId);
     for (const [wid, mesh] of weaponMeshes.entries()) {
+      mesh.visible = wid === canonicalWeapon;
+    }
+    for (const [wid, mesh] of thrownWeaponMeshes.entries()) {
       mesh.visible = wid === canonicalWeapon;
     }
     helmetMesh.visible = Boolean(equipment.helmet);
@@ -356,6 +400,14 @@ export function createHero(ctx = {}) {
     cheerTimer = CHEER_DURATION;
   }
 
+  function triggerJump() {
+    jumpAnimTimer = 0.24;
+  }
+
+  function triggerLand() {
+    landAnimTimer = 0.16;
+  }
+
   function flashShield() {
     shieldFlashTimer = 0.24;
   }
@@ -367,8 +419,15 @@ export function createHero(ctx = {}) {
     const fallbackPlayer = ctx?.state?.player;
     const x = moveState.x ?? fallbackPlayer?.x ?? group.position.x;
     const y = moveState.y ?? fallbackPlayer?.y ?? group.position.y;
+    const groundY = moveState.groundY ?? fallbackPlayer?.groundY ?? y;
     const z = moveState.z ?? fallbackPlayer?.z ?? group.position.z;
     const yaw = moveState.yaw ?? fallbackPlayer?.yaw ?? group.rotation.y;
+    const vy = Number(moveState.vy ?? fallbackPlayer?.vy ?? 0);
+    const isJumping = Boolean(moveState.jumping ?? fallbackPlayer?.jumping);
+    const landSquash = Math.max(
+      0,
+      Number(moveState.landSquash ?? fallbackPlayer?.landSquashTimer ?? landAnimTimer ?? 0)
+    );
     const speedRatio = Math.max(0, Math.min(2.0, Number(moveState.speedRatio ?? 0)));
     const isSwinging = Boolean(moveState.swinging) || swingTimer > 0;
     const isBoinging = Boolean(moveState.boinging) || boingTimer > 0;
@@ -379,6 +438,8 @@ export function createHero(ctx = {}) {
     if (swingTimer > 0) swingTimer = Math.max(0, swingTimer - stepDt);
     if (boingTimer > 0) boingTimer = Math.max(0, boingTimer - stepDt);
     if (cheerTimer > 0) cheerTimer = Math.max(0, cheerTimer - stepDt);
+    if (jumpAnimTimer > 0) jumpAnimTimer = Math.max(0, jumpAnimTimer - stepDt);
+    if (landAnimTimer > 0) landAnimTimer = Math.max(0, landAnimTimer - stepDt);
     if (shieldFlashTimer > 0) {
       shieldFlashTimer = Math.max(0, shieldFlashTimer - stepDt);
       const pulse = 1 + Math.sin((shieldFlashTimer / 0.24) * Math.PI) * 0.14;
@@ -396,8 +457,8 @@ export function createHero(ctx = {}) {
 
     const stride = Math.min(1.25, speedRatio);
     const legSwing = Math.sin(walkPhase) * 0.78 * stride;
-    const stepHop = speedRatio > 0.03 ? Math.abs(Math.sin(walkPhase)) * 0.11 * stride : 0;
-    const idleBob = Math.sin(t * 3.8) * 0.028 * (1 - Math.min(1, stride));
+    const stepHop = speedRatio > 0.03 && !isJumping ? Math.abs(Math.sin(walkPhase)) * 0.11 * stride : 0;
+    const idleBob = !isJumping ? Math.sin(t * 3.8) * 0.028 * (1 - Math.min(1, stride)) : 0;
 
     bodyRig.position.set(0, stepHop + idleBob, 0);
     bodyRig.rotation.set(stride * 0.09, 0, Math.cos(walkPhase) * 0.04 * stride);
@@ -421,13 +482,32 @@ export function createHero(ctx = {}) {
       capePivot.rotation.x =
         0.24 +
         stride * 0.64 +
-        (isBoinging ? 0.55 : 0) +
+        (isBoinging || isJumping ? 0.55 : 0) +
         Math.sin(t * (7 + stride * 9)) * (0.06 + stride * 0.14);
     }
     if (equipment.speedBoots) {
-      const wingFlap = Math.sin(t * 16 + walkPhase * 1.5) * (0.06 + stride * 0.16);
+      const wingFlap = Math.sin(t * 16 + walkPhase * 1.5) * (0.06 + (stride + (isJumping ? 0.8 : 0)) * 0.16);
       speedBootL.rotation.y = wingFlap;
       speedBootR.rotation.y = -wingFlap;
+    }
+
+    // Mario-style expressive jump pose & landing squash-and-stretch
+    if (isJumping && !isBoinging) {
+      const riseFactor = Math.max(-1, Math.min(1, vy / 11.5));
+      const stretchY = 1 + Math.max(0, riseFactor) * 0.12;
+      const squashXZ = 1 / Math.sqrt(stretchY);
+      bodyRig.scale.set(squashXZ, stretchY, squashXZ);
+      bodyRig.rotation.x = -riseFactor * 0.14;
+      // Classic Mario skyward fist-pump on right arm + cheerful knee tuck
+      armR.rotation.set(-2.45, 0, -0.22);
+      armL.rotation.set(0.55, 0, 0.34);
+      legL.rotation.set(-0.62, 0, 0);
+      legR.rotation.set(0.48, 0, 0);
+      headPivot.rotation.x = -0.15;
+    } else if (landSquash > 0 && !isBoinging) {
+      const s = Math.sin(Math.min(1, landSquash / 0.16) * Math.PI);
+      bodyRig.scale.set(1 + s * 0.16, 1 - s * 0.15, 1 + s * 0.16);
+      bodyRig.position.y -= s * 0.08;
     }
 
     if (isSwinging) {
@@ -481,8 +561,28 @@ export function createHero(ctx = {}) {
       headPivot.rotation.x = -0.16;
     }
 
+    // Odyssey-style Thrown Sahur Stick visibility & world-space spin sync
+    const sp = moveState.stickProjectile ?? ctx?.state?.stickThrow;
+    if (sp && sp.active) {
+      weaponSocket.visible = false;
+      thrownStickGroup.visible = true;
+      thrownStickGroup.position.set(
+        Number(sp.x) || x,
+        Number(sp.y) || (y + 0.92),
+        Number(sp.z) || z
+      );
+      spinPivot.rotation.set(0, Number(sp.spinAngle) || 0, Math.sin((Number(sp.spinAngle) || 0) * 0.5) * 0.12);
+      const ringPulse = 1 + Math.sin((Number(sp.spinAngle) || 0) * 0.8) * 0.12;
+      spinRingMesh.scale.set(ringPulse, ringPulse, 1);
+    } else {
+      weaponSocket.visible = true;
+      thrownStickGroup.visible = false;
+    }
+
     if (shadowDisc) {
-      const hScale = Math.max(0.65, 1 - bodyRig.position.y * 0.35);
+      const jumpHeight = Math.max(0, y - groundY);
+      shadowDisc.position.y = (groundY - y) + 0.03;
+      const hScale = Math.max(0.42, 1 - (bodyRig.position.y + jumpHeight * 0.45) * 0.28);
       shadowDisc.scale.set(hScale, hScale, 1);
     }
     cheerStarSprite.visible = false;
@@ -494,17 +594,26 @@ export function createHero(ctx = {}) {
     boingTimer = 0;
     cheerTimer = 0;
     shieldFlashTimer = 0;
+    jumpAnimTimer = 0;
+    landAnimTimer = 0;
     equipment.weaponId = 'wooden_kentungan_bat';
     equipment.helmet = false;
     equipment.speedBoots = false;
     equipment.starCape = false;
     equipment.crown = false;
     applyEquipmentVisuals();
+    weaponSocket.visible = true;
+    thrownStickGroup.visible = false;
+    thrownStickGroup.position.set(spawn.x, spawn.y + 0.92, spawn.z);
     group.position.set(spawn.x, spawn.y, spawn.z);
     group.rotation.set(0, initYaw, 0);
     bodyRig.position.set(0, 0, 0);
     bodyRig.rotation.set(0, 0, 0);
     bodyRig.scale.set(1, 1, 1);
+    if (shadowDisc) {
+      shadowDisc.position.y = 0.03;
+      shadowDisc.scale.set(1, 1, 1);
+    }
   }
 
   applyEquipmentVisuals();
@@ -512,6 +621,7 @@ export function createHero(ctx = {}) {
   return {
     group,
     weaponSocket,
+    thrownStickGroup,
     setEquipment,
     getEquipment,
     get equipment() {
@@ -520,6 +630,8 @@ export function createHero(ctx = {}) {
     triggerSwing,
     triggerBoing,
     triggerCheer,
+    triggerJump,
+    triggerLand,
     flashShield,
     update,
     reset,

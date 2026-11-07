@@ -381,6 +381,46 @@ export function createSfx(audio) {
     playTone(ctx, { type: 'sine', freqStart: 520, freqEnd: 740, when: ctx.currentTime, dur: 0.055, gain: 0.16 });
   }
 
+  function jump() {
+    if (!canFire('jump', 55)) return;
+    const ctx = getReadyCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Classic cheerful Mario-style upward spring whistle
+    playTone(ctx, { type: 'square', freqStart: 240, freqEnd: 560, when: t, dur: 0.12, gain: 0.16 });
+    playTone(ctx, { type: 'sine', freqStart: 420, freqEnd: 880, when: t + 0.03, dur: 0.14, gain: 0.22 });
+  }
+
+  function land() {
+    if (!canFire('land', 45)) return;
+    const ctx = getReadyCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    playTone(ctx, { type: 'triangle', freqStart: 170, freqEnd: 78, when: t, dur: 0.075, gain: 0.20 });
+    playNoiseBurst(ctx, { when: t, dur: 0.05, gain: 0.09, filterType: 'lowpass', freq: 480, q: 0.9 });
+  }
+
+  function stickThrow() {
+    if (!canFire('stickThrow', 60)) return;
+    const ctx = getReadyCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Spinning wooden Kentungan Sahur stick whoosh + rhythmic chime
+    playNoiseBurst(ctx, { when: t, dur: 0.16, gain: 0.16, filterType: 'bandpass', freq: 1120, q: 1.4 });
+    playTone(ctx, { type: 'triangle', freqStart: 360, freqEnd: 680, when: t, dur: 0.11, gain: 0.22 });
+    playTone(ctx, { type: 'sine', freqStart: 540, freqEnd: 860, when: t + 0.08, dur: 0.11, gain: 0.18 });
+  }
+
+  function stickCatch() {
+    if (!canFire('stickCatch', 45)) return;
+    const ctx = getReadyCtx();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Crisp wooden catch pop + bright confirmation sparkle
+    playTone(ctx, { type: 'triangle', freqStart: 480, freqEnd: 760, when: t, dur: 0.075, gain: 0.21 });
+    playTone(ctx, { type: 'sine', freqStart: 760, freqEnd: 1040, when: t + 0.04, dur: 0.085, gain: 0.18 });
+  }
+
   function getState() {
     return {
       playedCount,
@@ -412,6 +452,11 @@ export function createSfx(audio) {
     victoryFireworks,
     victoryFanfare: victoryFireworks,
     uiTap,
+    jump,
+    land,
+    jumpLand: land,
+    stickThrow,
+    stickCatch,
     swing: () => blockHit(0),
     getState,
   };

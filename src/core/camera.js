@@ -98,6 +98,8 @@ export function createCameraController() {
     yaw += yawDiff * Math.min(1, clampedDt * 12);
 
     const p = state.player;
+    const groundY = Number.isFinite(p.groundY) ? p.groundY : p.y;
+    const camPlayerY = groundY + (p.y - groundY) * 0.38;
     let baseDist = isPortrait ? 15.2 : 12.8;
     let baseHeight = isPortrait ? 9.4 : 8.2;
     let lookLift = 1.55;
@@ -113,18 +115,18 @@ export function createCameraController() {
         const isNarrowPortrait = camera.aspect < 0.6;
         baseDist += blend * (isNarrowPortrait ? 8.8 : isPortrait ? 7.4 : isShortLandscape ? 8.6 : 7.2);
         baseHeight += blend * (isShortLandscape ? 2.6 : 2.35);
-        const titanMidY = (Number(activeTitan.y) || p.y) + (isShortLandscape ? 3.95 : 3.7);
-        const heroLookY = p.y + lookLift;
+        const titanMidY = (Number(activeTitan.y) || groundY) + (isShortLandscape ? 3.95 : 3.7);
+        const heroLookY = camPlayerY + lookLift;
         desiredFocus.set(
           p.x + dx * 0.52 * blend,
           heroLookY + (titanMidY - heroLookY) * 0.76 * blend,
           p.z + dz * 0.52 * blend
         );
       } else {
-        desiredFocus.set(p.x, p.y + lookLift, p.z);
+        desiredFocus.set(p.x, camPlayerY + lookLift, p.z);
       }
     } else {
-      desiredFocus.set(p.x, p.y + lookLift, p.z);
+      desiredFocus.set(p.x, camPlayerY + lookLift, p.z);
     }
 
     const followLerp = Math.min(1, clampedDt * 10.5);

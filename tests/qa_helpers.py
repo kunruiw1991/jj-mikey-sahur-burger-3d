@@ -115,6 +115,8 @@ TITAN_SPECS: dict[str, dict[str, Any]] = {
 SEAM_METHODS: list[str] = [
     'startGame',
     'tapWorld',
+    'jump',
+    'throwStick',
     'breakBlock',
     'plantPot',
     'spinChest',
@@ -130,6 +132,7 @@ HUD_BUTTON_IDS: list[str] = [
     'btn-hud-totem',
     'btn-hud-voice',
     'btn-hud-menu',
+    'btn-hud-jump',
     'btn-hud-drum',
 ]
 

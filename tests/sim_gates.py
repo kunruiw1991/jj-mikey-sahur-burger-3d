@@ -1173,6 +1173,148 @@ def gate_f10_twenty_seed_child_bot_and_determinism(
   }
 
 
+def gate_f11_mario_jump_arc_and_landing(sess: QASession) -> dict[str, Any]:
+  """F11: Mario-style Jump arc (y > groundY + 1.2), mid-air movement, and clean landing."""
+  res = sess.eval_json(
+      """(() => {
+        const L = window.__LUCKY_TITAN__;
+        L.startGame({ seed: 2026, chaosMode: false });
+        const st0 = L.getState();
+        const groundY0 = st0.player.groundY;
+        const jumpRes = L.jump();
+        const stLaunch = L.getState();
+        let maxY = stLaunch.player.y;
+        let maxJumpY = stLaunch.player.jumpY || 0;
+        let maxRoll = Math.abs(stLaunch.perf?.cameraRoll || 0);
+        let sawAirborne = Boolean(stLaunch.player.jumping && stLaunch.player.airborne);
+        let landedFrame = -1;
+
+        for (let f = 1; f <= 60; f += 1) {
+          L.stepFrames(1, 1 / 60);
+          const st = L.getState();
+          if (st.player.y > maxY) maxY = st.player.y;
+          if ((st.player.jumpY || 0) > maxJumpY) maxJumpY = st.player.jumpY || 0;
+          const roll = Math.abs(st.perf?.cameraRoll || 0);
+          if (roll > maxRoll) maxRoll = roll;
+          if (st.player.jumping || st.player.airborne) sawAirborne = true;
+          if (sawAirborne && st.player.grounded && !st.player.jumping) {
+            landedFrame = f;
+            break;
+          }
+        }
+        const stLanded = L.getState();
+
+        // Second jump while walking horizontally to verify groundY decoupling
+        L.tapWorld(4.0, 4.5);
+        L.jump();
+        let movedHorizWhileJumping = false;
+        const xStart = L.getState().player.x;
+        for (let f = 1; f <= 60; f += 1) {
+          L.stepFrames(1, 1 / 60);
+          const st = L.getState();
+          if (st.player.jumping && Math.abs(st.player.x - xStart) > 0.25) {
+            movedHorizWhileJumping = true;
+          }
+          if (!st.player.jumping && st.player.grounded) break;
+        }
+        const stFinal = L.getState();
+
+        return {
+          jumpRes,
+          groundY0,
+          vyLaunch: stLaunch.player.vy,
+          maxY: Number(maxY.toFixed(3)),
+          maxJumpY: Number(maxJumpY.toFixed(3)),
+          jumpApexY: stLanded.player.jumpApexY,
+          sawAirborne,
+          landedFrame,
+          landedGrounded: stLanded.player.grounded,
+          landedJumping: stLanded.player.jumping,
+          landedYDiff: Math.abs(stLanded.player.y - stLanded.player.groundY),
+          movedHorizWhileJumping,
+          finalJumpCount: stFinal.player.jumpCount,
+          maxCameraRoll: maxRoll,
+        };
+      })()"""
+  )
+  passed = (
+      bool(res.get('jumpRes', {}).get('ok'))
+      and float(res.get('vyLaunch', 0.0)) > 8.0
+      and bool(res.get('sawAirborne'))
+      and float(res.get('maxJumpY', 0.0)) >= 1.2
+      and 10 <= int(res.get('landedFrame', -1)) <= 60
+      and bool(res.get('landedGrounded'))
+      and not bool(res.get('landedJumping'))
+      and float(res.get('landedYDiff', 99.0)) < 0.05
+      and bool(res.get('movedHorizWhileJumping'))
+      and int(res.get('finalJumpCount', 0)) >= 2
+      and float(res.get('maxCameraRoll', 1.0)) == 0.0
+  )
+  return {'gate': 'F11', 'passed': passed, **res}
+
+
+def gate_f12_odyssey_sahur_stick_throw_and_return(sess: QASession) -> dict[str, Any]:
+  """F12: Odyssey-style Returning Tung Tung Tung Sahur Stick Throw (outbound -> hover -> return + hit)."""
+  res = sess.eval_json(
+      """(() => {
+        const L = window.__LUCKY_TITAN__;
+        L.startGame({ seed: 2026, chaosMode: false });
+        // Aim directly at starter_lucky block at (0, 1, 2.0) from spawn (0, 1, 4.5)
+        const throwRes = L.throwStick({ targetX: 0, targetZ: 2.0 });
+        const st0 = L.getState();
+        const phasesSeen = [st0.stickThrow?.phase];
+        let maxDist = st0.stickThrow?.distFromHero || 0;
+        let maxSpin = st0.stickThrow?.spinAngle || 0;
+        let returnedFrame = -1;
+
+        for (let f = 1; f <= 90; f += 1) {
+          L.stepFrames(1, 1 / 60);
+          const st = L.getState();
+          const sp = st.stickThrow || {};
+          if (sp.phase && !phasesSeen.includes(sp.phase)) {
+            phasesSeen.push(sp.phase);
+          }
+          if ((sp.distFromHero || 0) > maxDist) maxDist = sp.distFromHero;
+          if ((sp.spinAngle || 0) > maxSpin) maxSpin = sp.spinAngle;
+          if (!sp.active && (sp.returnCount || 0) >= 1) {
+            returnedFrame = f;
+            break;
+          }
+        }
+        const stAfter = L.getState();
+        return {
+          throwRes,
+          phasesSeen,
+          maxDist: Number(maxDist.toFixed(3)),
+          maxSpin: Number(maxSpin.toFixed(3)),
+          returnedFrame,
+          activeAfter: stAfter.stickThrow?.active,
+          phaseAfter: stAfter.stickThrow?.phase,
+          throwCount: stAfter.stickThrow?.throwCount,
+          returnCount: stAfter.stickThrow?.returnCount,
+          hits: stAfter.stickThrow?.hits,
+          blocksBroken: stAfter.blocksBroken,
+        };
+      })()"""
+  )
+  phases = res.get('phasesSeen') or []
+  passed = (
+      bool(res.get('throwRes', {}).get('ok'))
+      and 'outbound' in phases
+      and ('hover' in phases or 'returning' in phases)
+      and float(res.get('maxDist', 0.0)) >= 3.5
+      and float(res.get('maxSpin', 0.0)) > 3.0
+      and 20 <= int(res.get('returnedFrame', -1)) <= 90
+      and not bool(res.get('activeAfter'))
+      and res.get('phaseAfter') == 'idle'
+      and int(res.get('throwCount', 0)) >= 1
+      and int(res.get('returnCount', 0)) >= 1
+      and int(res.get('hits', 0)) >= 1
+      and int(res.get('blocksBroken', 0)) >= 1
+  )
+  return {'gate': 'F12', 'passed': passed, **res}
+
+
 GATE_RUNNERS = [
     ('F1', gate_f1_boot_and_play_transition),
     ('F2', gate_f2_first_starter_thrill),
@@ -1184,6 +1326,8 @@ GATE_RUNNERS = [
     ('F8', gate_f8_undergeared_titan_boing),
     ('F9', gate_f9_geared_four_titan_victory),
     ('F10', gate_f10_twenty_seed_child_bot_and_determinism),
+    ('F11', gate_f11_mario_jump_arc_and_landing),
+    ('F12', gate_f12_odyssey_sahur_stick_throw_and_return),
 ]
 
 
@@ -1274,12 +1418,22 @@ def format_sim_markdown(report: dict[str, Any]) -> str:
           f"helmetPreThunder={g.get('helmetBeforeThunderCount')}/{g.get('seedCount')}, "
           f"det={g.get('deterministicSeed2026')}"
       )
+    elif gid == 'F11':
+      summary = (
+          f"maxJumpY={g.get('maxJumpY')}, landedFrame={g.get('landedFrame')}, "
+          f"jumps={g.get('finalJumpCount')}, camRoll={g.get('maxCameraRoll')}"
+      )
+    elif gid == 'F12':
+      summary = (
+          f"phases={'->'.join(g.get('phasesSeen') or [])}, maxDist={g.get('maxDist')}b, "
+          f"hits={g.get('hits')}, returns={g.get('returnCount')}"
+      )
     lines.append(f"| {gid} | {summary} | {g.get('wallTimeSec', 0)} | **{verdict}** |")
   return '\n'.join(lines)
 
 
 def main() -> int:
-  ap = argparse.ArgumentParser(description='Run Gates F1..F10 fun, pacing & 20-seed child-bot simulation')
+  ap = argparse.ArgumentParser(description='Run Gates F1..F12 fun, pacing & 20-seed child-bot simulation')
   ap.add_argument('--gate', type=str, default='', help='Optional single gate ID, e.g. F10')
   ap.add_argument('--seeds', type=int, default=20, help='Number of child-bot seeds for F10 (default: 20)')
   args = ap.parse_args()

@@ -231,26 +231,52 @@ function bootLuckyBlockTitans() {
   function syncHeroToSpawn() {
     const sp = HUB_LAYOUT.spawn;
     const clamped = world.clampToWalkable(sp.x, sp.z);
+    const groundY = Number.isFinite(clamped.y) ? clamped.y : sp.y;
     state.player.x = clamped.x;
-    state.player.y = Number.isFinite(clamped.y) ? clamped.y : sp.y;
+    state.player.y = groundY;
+    state.player.groundY = groundY;
+    state.player.jumpY = 0;
     state.player.z = clamped.z;
     state.player.vx = 0;
+    state.player.vy = 0;
     state.player.vz = 0;
+    state.player.grounded = true;
+    state.player.airborne = false;
+    state.player.jumping = false;
+    state.player.jumpApexY = groundY;
+    state.player.landSquashTimer = 0;
     state.player.yaw = Math.PI;
     state.player.state = 'idle';
     state.player.path = [];
     state.player.target = null;
     state.player.boingArc = null;
     state.player.swingCooldown = 0;
+    if (state.stickThrow) {
+      state.stickThrow.active = false;
+      state.stickThrow.phase = 'idle';
+      state.stickThrow.weaponId = resolveWeaponId(state.player.weaponId);
+      state.stickThrow.x = state.player.x;
+      state.stickThrow.y = state.player.y + 0.92;
+      state.stickThrow.z = state.player.z;
+      state.stickThrow.distFromHero = 0;
+      state.stickThrow.spinAngle = 0;
+      state.stickThrow.elapsed = 0;
+      state.stickThrow.hitTargets = [];
+    }
     combat.syncPlayerStats();
     hero.update(0, 0, {
       x: state.player.x,
       y: state.player.y,
+      groundY: state.player.groundY,
       z: state.player.z,
       yaw: state.player.yaw,
+      vy: 0,
+      jumping: false,
+      landSquash: 0,
       speedRatio: 0,
       swinging: false,
       boinging: false,
+      stickProjectile: state.stickThrow,
     });
   }
 
@@ -698,6 +724,12 @@ function bootLuckyBlockTitans() {
     if (!opts.fromHold) {
       state.feedback.taps = (Number(state.feedback.taps) || 0) + 1;
     }
+    state.feedback.drumSwings = (Number(state.feedback.drumSwings) || 0) + 1;
+
+    // When triggered from the HUD BONK! button or action key, also launch the Odyssey-style returning Sahur stick if idle!
+    if ((opts.fromButton || opts.fromKey) && !opts.fromHold && !state.stickThrow?.active) {
+      throwStick({ fromDrum: true, fromButton: opts.fromButton, fromKey: opts.fromKey });
+    }
 
     const p = state.player;
     const nearTitan = titans.findNear(p.x, p.z, MOVEMENT_TUNING.titanMeleeRange + 0.8);
@@ -706,7 +738,7 @@ function bootLuckyBlockTitans() {
       return combat.bonkTitan(nearTitan.id || nearTitan.titanId);
     }
 
-    const nearBlock = world.getBreakableAt(p.x, p.y, p.z, MOVEMENT_TUNING.interactRange + 0.45);
+    const nearBlock = world.getBreakableAt(p.x, p.groundY ?? p.y, p.z, MOVEMENT_TUNING.interactRange + 0.45);
     if (nearBlock && !nearBlock.broken) {
       p.yaw = Math.atan2(nearBlock.x - p.x, nearBlock.z - p.z);
       return applyBlockHitAndLoot(nearBlock, computeMineDamage(nearBlock));
@@ -741,7 +773,376 @@ function bootLuckyBlockTitans() {
     return { ok: true, kind: 'air_swing', beat: combo.beat, shockwave: combo.shockwave };
   }
 
+  function triggerJump(opts = {}) {
+    if (state.mode === 'title') {
+      startGame({ seed: state.seed, chaosMode: state.chaosMode });
+    }
+    if (state.mode !== 'playing' || state.player.boingArc?.active) {
+      return { ok: false, reason: 'busy' };
+    }
+    if (!opts.fromSeam) {
+      state.feedback.taps = (Number(state.feedback.taps) || 0) + 1;
+    }
+
+    const p = state.player;
+    if (!Number.isFinite(p.groundY)) {
+      const gy = world.getGroundY(p.x, p.z);
+      p.groundY = Number.isFinite(gy) && gy > -20 ? gy : p.y;
+    }
+
+    if (!p.jumping && p.grounded !== false) {
+      p.vy = Number(opts.velocity) > 0 ? Number(opts.velocity) : (MOVEMENT_TUNING.jumpVelocity || 11.5);
+      p.jumping = true;
+      p.grounded = false;
+      p.airborne = true;
+      p.jumpCount = (Number(p.jumpCount) || 0) + 1;
+      p.jumpApexY = Math.max(Number(p.jumpApexY) || p.groundY, p.y);
+      p.landSquashTimer = 0;
+      p.state = 'jumping';
+      state.feedback.jumps = (Number(state.feedback.jumps) || 0) + 1;
+
+      hero.triggerJump?.();
+      sfx.jump?.();
+      particles.spawnTapRipple(p.x, p.groundY + 0.05, p.z, 0x66d9e8);
+      particles.spawnStarSparkles(p.x, p.groundY + 0.25, p.z, '#66d9e8', 8);
+      ui.spawnComicBurst(
+        p.jumpCount % 2 === 1 ? 'YAHOO!' : 'JUMP!',
+        p.x,
+        p.y + 1.85,
+        p.z,
+        '#66d9e8'
+      );
+      return {
+        ok: true,
+        kind: 'jump',
+        jumpCount: p.jumpCount,
+        vy: p.vy,
+        groundY: p.groundY,
+      };
+    }
+
+    // Mid-air press of JUMP! button or Space/KeyJ/KeyZ launches the Odyssey Sahur Stick if not already in flight!
+    if ((opts.fromButton || opts.fromKey || opts.allowAirThrow) && !state.stickThrow?.active) {
+      const throwRes = throwStick({
+        fromAirJump: true,
+        fromButton: opts.fromButton,
+        fromKey: opts.fromKey,
+      });
+      return {
+        ...throwRes,
+        kind: 'air_stick_throw',
+      };
+    }
+
+    return { ok: false, reason: 'airborne', jumping: true };
+  }
+
+  function throwStick(opts = {}) {
+    if (state.mode === 'title') {
+      startGame({ seed: state.seed, chaosMode: state.chaosMode });
+    }
+    if (state.mode !== 'playing' || state.player.boingArc?.active) {
+      return { ok: false, reason: 'busy' };
+    }
+    const st = state.stickThrow;
+    if (!st) {
+      return { ok: false, reason: 'no_state' };
+    }
+    if (st.active) {
+      return { ok: false, reason: 'already_active', phase: st.phase };
+    }
+
+    if (!opts.fromSeam && !opts.fromDrum && !opts.fromAirJump) {
+      state.feedback.taps = (Number(state.feedback.taps) || 0) + 1;
+    }
+
+    const p = state.player;
+    let dirX = Math.sin(Number(p.yaw) || 0);
+    let dirZ = Math.cos(Number(p.yaw) || 0);
+
+    if (Number.isFinite(opts.targetX) && Number.isFinite(opts.targetZ)) {
+      const dx = Number(opts.targetX) - p.x;
+      const dz = Number(opts.targetZ) - p.z;
+      const len = Math.hypot(dx, dz);
+      if (len > 1e-4) {
+        dirX = dx / len;
+        dirZ = dz / len;
+        p.yaw = Math.atan2(dirX, dirZ);
+      }
+    } else if (Number.isFinite(opts.dirX) && Number.isFinite(opts.dirZ)) {
+      const dx = Number(opts.dirX);
+      const dz = Number(opts.dirZ);
+      const len = Math.hypot(dx, dz);
+      if (len > 1e-4) {
+        dirX = dx / len;
+        dirZ = dz / len;
+        p.yaw = Math.atan2(dirX, dirZ);
+      }
+    } else if (Number.isFinite(opts.yaw)) {
+      p.yaw = Number(opts.yaw);
+      dirX = Math.sin(p.yaw);
+      dirZ = Math.cos(p.yaw);
+    } else {
+      const dLen = Math.hypot(dirX, dirZ);
+      if (dLen > 1e-4) {
+        dirX /= dLen;
+        dirZ /= dLen;
+      } else {
+        dirX = 0;
+        dirZ = -1;
+      }
+    }
+
+    const range = Math.max(
+      2.5,
+      Math.min(10.0, Number(opts.range) || MOVEMENT_TUNING.stickThrowRange || 6.2)
+    );
+    const handY = p.y + 0.92;
+
+    st.active = true;
+    st.phase = 'outbound';
+    st.weaponId = resolveWeaponId(p.weaponId || 'wooden_kentungan_bat');
+    st.startX = p.x;
+    st.startY = handY;
+    st.startZ = p.z;
+    st.x = p.x + dirX * 0.45;
+    st.y = handY;
+    st.z = p.z + dirZ * 0.45;
+    st.dirX = dirX;
+    st.dirZ = dirZ;
+    st.range = range;
+    st.apexX = p.x + dirX * range;
+    st.apexY = handY + 0.08;
+    st.apexZ = p.z + dirZ * range;
+    st.spinAngle = 0;
+    st.distFromHero = Math.hypot(st.x - p.x, st.z - p.z);
+    if (st.distFromHero > (Number(st.maxDistReached) || 0)) {
+      st.maxDistReached = st.distFromHero;
+    }
+    st.elapsed = 0;
+    st.hitTargets = [];
+    st.throwCount = (Number(st.throwCount) || 0) + 1;
+
+    state.feedback.stickThrows = (Number(state.feedback.stickThrows) || 0) + 1;
+
+    hero.triggerSwing();
+    p.swingCooldown = MOVEMENT_TUNING.swingIntervalSec;
+    if (hero.weaponSocket) hero.weaponSocket.visible = false;
+    if (hero.thrownStickGroup) {
+      hero.thrownStickGroup.visible = true;
+      hero.thrownStickGroup.position.set(st.x, st.y, st.z);
+    }
+
+    sfx.stickThrow?.();
+    particles.spawnStarSparkles(st.x, st.y, st.z, '#ffd43b', 10);
+    ui.spawnComicBurst('TUNG! THROW!', p.x, p.y + 1.95, p.z, '#ffd43b');
+
+    return {
+      ok: true,
+      phase: st.phase,
+      weaponId: st.weaponId,
+      throwCount: st.throwCount,
+      apexX: Number(st.apexX.toFixed(3)),
+      apexZ: Number(st.apexZ.toFixed(3)),
+    };
+  }
+
+  function sweepStickCollisions(prevX, prevY, prevZ, curX, curY, curZ) {
+    const st = state.stickThrow;
+    const p = state.player;
+    if (!st || !st.active) return;
+
+    const samples = [0.5, 1.0];
+    for (let sIdx = 0; sIdx < samples.length; sIdx += 1) {
+      const u = samples[sIdx];
+      const sx = prevX + (curX - prevX) * u;
+      const sy = prevY + (curY - prevY) * u;
+      const sz = prevZ + (curZ - prevZ) * u;
+
+      // 1. Breakable blocks along flight path
+      const nearBlock =
+        world.getBreakableAt(sx, sy - 0.5, sz, 1.35) ||
+        world.getBreakableAt(sx, NaN, sz, 1.25);
+      if (nearBlock && !nearBlock.broken && Math.abs(sy - (nearBlock.y + 0.6)) <= 2.2) {
+        const tag = `block:${nearBlock.key}`;
+        if (!st.hitTargets.includes(tag)) {
+          st.hitTargets.push(tag);
+          st.hits = (Number(st.hits) || 0) + 1;
+          st.hitCount = st.hits;
+          state.feedback.stickHits = (Number(state.feedback.stickHits) || 0) + 1;
+          applyBlockHitAndLoot(nearBlock, computeMineDamage(nearBlock), { fromSeam: false });
+          particles.spawnStarSparkles(nearBlock.x, nearBlock.y + 0.8, nearBlock.z, '#ffe066', 8);
+        }
+      }
+
+      // 2. Active Giant Titans along flight path
+      const nearTitan = titans.findNear(sx, sz, 2.85);
+      if (nearTitan && nearTitan.active && !nearTitan.defeated) {
+        const tId = nearTitan.id || nearTitan.titanId;
+        const tag = `titan:${tId}`;
+        if (!st.hitTargets.includes(tag)) {
+          st.hitTargets.push(tag);
+          st.hits = (Number(st.hits) || 0) + 1;
+          st.hitCount = st.hits;
+          state.feedback.stickHits = (Number(state.feedback.stickHits) || 0) + 1;
+          const reqTier = Number(nearTitan.requiredTier) || 2;
+          if ((Number(p.powerTier) || 1) >= reqTier) {
+            advanceDrumCombo(nearTitan.x, nearTitan.y, nearTitan.z, {
+              fromSeam: false,
+              showAirWord: false,
+            });
+            combat.bonkTitan(tId);
+          } else {
+            // Under-geared ranged stick hit bounces the stick back harmlessly without throwing the hero onto a cloud!
+            sfx.cloudBoing?.();
+            particles.spawnStarSparkles(nearTitan.x, nearTitan.y + 1.8, nearTitan.z, '#74c0fc', 10);
+            ui.spawnComicBurst(
+              'BOING! NEED STARS!',
+              nearTitan.x,
+              nearTitan.y + 2.5,
+              nearTitan.z,
+              '#74c0fc'
+            );
+            st.phase = 'returning';
+            st.apexX = curX;
+            st.apexY = curY;
+            st.apexZ = curZ;
+            st.elapsed = 0;
+          }
+        }
+      }
+
+      // 3. Friendly Island Critters along flight path (gentle ranged tummy-pat!)
+      const nearCritter = critters.findNear(sx, sz, 1.65);
+      if (nearCritter) {
+        const tag = `critter:${nearCritter.id}`;
+        if (!st.hitTargets.includes(tag)) {
+          st.hitTargets.push(tag);
+          st.hits = (Number(st.hits) || 0) + 1;
+          st.hitCount = st.hits;
+          state.feedback.stickHits = (Number(state.feedback.stickHits) || 0) + 1;
+          executeCritterPat(nearCritter.id);
+        }
+      }
+
+      // 4. Collect Star Gem / Seed / Gear pickups along flight path
+      pickups.collectAllNear?.(sx, sz, 2.15);
+    }
+  }
+
+  function updateStickThrow(dt) {
+    const st = state.stickThrow;
+    const p = state.player;
+    if (!st || !st.active) return;
+
+    const outboundSec = MOVEMENT_TUNING.stickOutboundSec || 0.32;
+    const hoverSec = MOVEMENT_TUNING.stickHoverSec || 0.16;
+    const returnSec = MOVEMENT_TUNING.stickReturnSec || 0.34;
+
+    const prevX = st.x;
+    const prevY = st.y;
+    const prevZ = st.z;
+
+    const prevSpin = st.spinAngle;
+    st.elapsed += dt;
+    st.spinAngle += dt * 28.0;
+    st.weaponId = resolveWeaponId(p.weaponId || st.weaponId || 'wooden_kentungan_bat');
+
+    if (st.phase === 'outbound') {
+      const u = Math.min(1, st.elapsed / outboundSec);
+      const ease = 1 - Math.pow(1 - u, 2.2);
+      st.x = st.startX + (st.apexX - st.startX) * ease;
+      st.y = st.startY + (st.apexY - st.startY) * ease + Math.sin(u * Math.PI) * 0.28;
+      st.z = st.startZ + (st.apexZ - st.startZ) * ease;
+
+      sweepStickCollisions(prevX, prevY, prevZ, st.x, st.y, st.z);
+
+      if (st.phase === 'outbound' && st.elapsed >= outboundSec) {
+        st.phase = 'hover';
+        st.elapsed = 0;
+        st.hitTargets = [];
+        particles.spawnTapRipple(
+          st.x,
+          (Number.isFinite(p.groundY) ? p.groundY : p.y) + 0.08,
+          st.z,
+          0xffe066
+        );
+      }
+    } else if (st.phase === 'hover') {
+      const u = Math.min(1, st.elapsed / hoverSec);
+      st.x = st.apexX + Math.cos(u * Math.PI * 2) * 0.18;
+      st.y = st.apexY + Math.sin(u * Math.PI) * 0.12;
+      st.z = st.apexZ + Math.sin(u * Math.PI * 2) * 0.18;
+
+      sweepStickCollisions(prevX, prevY, prevZ, st.x, st.y, st.z);
+
+      if (st.elapsed >= hoverSec) {
+        st.phase = 'returning';
+        st.elapsed = 0;
+        st.hitTargets = [];
+      }
+    } else if (st.phase === 'returning') {
+      const handX = p.x;
+      const handY = p.y + 0.92;
+      const handZ = p.z;
+      const u = Math.min(1, st.elapsed / returnSec);
+      const ease = u * u * (3 - 2 * u);
+      st.x = st.apexX + (handX - st.apexX) * ease;
+      st.y = st.apexY + (handY - st.apexY) * ease + Math.sin(u * Math.PI) * 0.22;
+      st.z = st.apexZ + (handZ - st.apexZ) * ease;
+
+      sweepStickCollisions(prevX, prevY, prevZ, st.x, st.y, st.z);
+
+      const distToHand = Math.hypot(st.x - handX, st.z - handZ);
+      if (st.elapsed >= returnSec || (u >= 0.65 && distToHand <= 0.55)) {
+        st.active = false;
+        st.phase = 'idle';
+        st.x = handX;
+        st.y = handY;
+        st.z = handZ;
+        st.distFromHero = 0;
+        st.spinAngle = 0;
+        st.elapsed = 0;
+        st.hitTargets = [];
+        st.returnCount = (Number(st.returnCount) || 0) + 1;
+        state.feedback.stickReturns = (Number(state.feedback.stickReturns) || 0) + 1;
+        if (hero.weaponSocket) hero.weaponSocket.visible = true;
+        if (hero.thrownStickGroup) hero.thrownStickGroup.visible = false;
+        sfx.stickCatch?.();
+        particles.spawnStarSparkles(handX, handY, handZ, '#ffe066', 6);
+        return;
+      }
+    }
+
+    st.distFromHero = Math.hypot(st.x - p.x, st.z - p.z);
+    if (st.distFromHero > (Number(st.maxDistReached) || 0)) {
+      st.maxDistReached = st.distFromHero;
+    }
+
+    if (Math.floor(st.spinAngle / (Math.PI * 0.6)) !== Math.floor(prevSpin / (Math.PI * 0.6))) {
+      particles.spawnStarSparkles(st.x, st.y, st.z, '#ffe066', 2);
+    }
+  }
+
   function handleActionKey() {
+    swingDrum({ fromHold: false, fromKey: true });
+  }
+
+  function handleJumpKey() {
+    if (state.mode === 'title') {
+      startGame({ seed: state.seed, chaosMode: state.chaosMode });
+      return;
+    }
+    if (state.mode !== 'playing' || ui.isAnyOverlayOpen(state)) return;
+    triggerJump({ fromKey: true });
+  }
+
+  function handleThrowKey() {
+    if (state.mode === 'title') {
+      startGame({ seed: state.seed, chaosMode: state.chaosMode });
+      return;
+    }
+    if (state.mode !== 'playing' || ui.isAnyOverlayOpen(state)) return;
     swingDrum({ fromHold: false, fromKey: true });
   }
 
@@ -750,11 +1151,21 @@ function bootLuckyBlockTitans() {
     if (p.swingCooldown > 0) {
       p.swingCooldown = Math.max(0, p.swingCooldown - dt);
     }
+    if (p.landSquashTimer > 0) {
+      p.landSquashTimer = Math.max(0, p.landSquashTimer - dt);
+    }
+    if (!Number.isFinite(p.groundY)) {
+      p.groundY = p.y;
+    }
 
     // While airborne on the Rainbow Spring Cloud, combat.update owns hero trajectory!
     if (p.boingArc?.active) {
       p.vx = 0;
+      p.vy = 0;
       p.vz = 0;
+      p.jumping = false;
+      p.grounded = false;
+      p.airborne = true;
       p.state = 'boinging';
       return;
     }
@@ -789,7 +1200,10 @@ function bootLuckyBlockTitans() {
         p.vx = (clamped.x - p.x) / Math.max(1e-4, dt);
         p.vz = (clamped.z - p.z) / Math.max(1e-4, dt);
         p.x = clamped.x;
-        p.y = clamped.y;
+        p.groundY = clamped.y;
+        if (!p.jumping) {
+          p.y = p.groundY;
+        }
         p.z = clamped.z;
       } else {
         p.vx = 0;
@@ -945,11 +1359,17 @@ function bootLuckyBlockTitans() {
 
         const groundY = world.getGroundY(p.x, p.z);
         if (Number.isFinite(groundY) && groundY > -20) {
-          p.y = groundY;
+          p.groundY = groundY;
+          if (!p.jumping) {
+            p.y = groundY;
+          }
         } else {
           const safe = world.clampToWalkable(p.x, p.z);
           p.x = safe.x;
-          p.y = safe.y;
+          p.groundY = safe.y;
+          if (!p.jumping) {
+            p.y = safe.y;
+          }
           p.z = safe.z;
           p.path = [];
         }
@@ -967,6 +1387,52 @@ function bootLuckyBlockTitans() {
       }
     }
 
+    // Mario-style vertical jump arc & landing physics
+    if (p.jumping) {
+      const grav =
+        p.vy > 0
+          ? (MOVEMENT_TUNING.jumpGravityUp || 28.0)
+          : (MOVEMENT_TUNING.jumpGravityDown || 38.0);
+      p.vy -= grav * dt;
+      p.y += p.vy * dt;
+      if (p.y > (Number(p.jumpApexY) || p.groundY)) {
+        p.jumpApexY = p.y;
+      }
+
+      // Head-bonk overhead/adjacent Lucky Blocks while rising!
+      if (p.vy > 0) {
+        const headBlock = world.getBreakableAt(p.x, p.y + 0.9, p.z, 1.35);
+        if (headBlock && !headBlock.broken && headBlock.y >= p.groundY - 0.1) {
+          applyBlockHitAndLoot(headBlock, computeMineDamage(headBlock));
+          p.vy = -Math.min(4.2, p.vy * 0.45);
+        }
+      }
+
+      if (p.y <= p.groundY) {
+        p.y = p.groundY;
+        p.vy = 0;
+        p.jumping = false;
+        p.grounded = true;
+        p.airborne = false;
+        p.jumpY = 0;
+        p.landSquashTimer = 0.16;
+        hero.triggerLand?.();
+        sfx.land?.();
+        particles.spawnTapRipple(p.x, p.groundY + 0.05, p.z, 0xffe066);
+        pickups.collectAllNear?.(p.x, p.z, 2.4);
+      } else {
+        p.grounded = false;
+        p.airborne = true;
+        p.jumpY = Math.max(0, p.y - p.groundY);
+      }
+    } else {
+      p.y = p.groundY;
+      p.vy = 0;
+      p.grounded = true;
+      p.airborne = false;
+      p.jumpY = 0;
+    }
+
     // Friendly proximity auto-pat: when hero jogs right past a happy island critter, give it a cheerful wave & pat!
     if (autoPatCooldown > 0) {
       autoPatCooldown = Math.max(0, autoPatCooldown - dt);
@@ -980,6 +1446,8 @@ function bootLuckyBlockTitans() {
 
     if (state.mode === 'victory') {
       p.state = 'celebrating';
+    } else if (p.jumping) {
+      p.state = 'jumping';
     } else if (p.swingCooldown > MOVEMENT_TUNING.swingIntervalSec * 0.35) {
       p.state = 'swinging';
     } else if (movedDist > 0.002) {
@@ -1157,6 +1625,8 @@ function bootLuckyBlockTitans() {
       return plantPotAction(padIdx);
     },
     swingDrum: (opts = {}) => swingDrum(opts),
+    jump: (opts = {}) => triggerJump(opts),
+    throwStick: (opts = {}) => throwStick(opts),
     replayVoice: () => {
       state.feedback.taps = (Number(state.feedback.taps) || 0) + 1;
       return voice.replayLast();
@@ -1231,6 +1701,8 @@ function bootLuckyBlockTitans() {
       }
     },
     onActionKey: handleActionKey,
+    onJumpKey: handleJumpKey,
+    onThrowKey: handleThrowKey,
     onUnlockAudio: () => {
       audio.unlock();
       if (state.mode !== 'title' && audio.musicEnabled && !music.isPlaying()) {
@@ -1254,9 +1726,14 @@ function bootLuckyBlockTitans() {
       hero.update(safeDt, state.time, {
         x: state.player.x,
         y: state.player.y,
+        groundY: state.player.groundY ?? state.player.y,
         z: state.player.z,
         yaw: state.player.yaw,
+        vy: 0,
+        jumping: false,
+        landSquash: 0,
         speedRatio: 0,
+        stickProjectile: state.stickThrow,
       });
       cameraCtrl.update(safeDt, state, null);
       ui.update(safeDt, state.time);
@@ -1287,10 +1764,14 @@ function bootLuckyBlockTitans() {
 
       if (state.mode === 'playing' && !hitStopped) {
         updatePlayerMovementAndActions(safeDt);
+        updateStickThrow(safeDt);
+      } else if (state.mode === 'playing') {
+        updateStickThrow(safeDt);
       } else if (state.mode === 'victory') {
         state.player.vx = 0;
         state.player.vz = 0;
         state.player.state = 'celebrating';
+        updateStickThrow(safeDt);
         victoryFireworkTimer -= safeDt;
         if (victoryFireworkTimer <= 0) {
           victoryFireworkTimer = 1.35;
@@ -1304,6 +1785,7 @@ function bootLuckyBlockTitans() {
       titans.update(worldDt, state.time, state.player);
     } else if (state.mode === 'roulette') {
       world.update(safeDt, state.time);
+      updateStickThrow(safeDt);
       pickups.update(safeDt, state.time);
       critters.update(safeDt, state.time);
       titans.update(safeDt, state.time, state.player);
@@ -1315,11 +1797,16 @@ function bootLuckyBlockTitans() {
     hero.update(safeDt, state.time, {
       x: state.player.x,
       y: state.player.y,
+      groundY: state.player.groundY ?? state.player.y,
       z: state.player.z,
       yaw: state.player.yaw,
+      vy: state.player.vy || 0,
+      jumping: Boolean(state.player.jumping),
+      landSquash: state.player.landSquashTimer || 0,
       speedRatio: speedMag / Math.max(1, MOVEMENT_TUNING.baseSpeed),
       swinging: state.player.state === 'swinging',
       boinging: Boolean(state.player.boingArc?.active),
+      stickProjectile: state.stickThrow,
     });
 
     cameraCtrl.update(safeDt, state, titans.getActive());
@@ -1393,6 +1880,60 @@ function bootLuckyBlockTitans() {
       null;
     const potSnaps = flowerpots.getSnapshot();
     const critterSnaps = critters.getSnapshot();
+    const st = state.stickThrow || {};
+    const stickSnap = {
+      active: Boolean(st.active),
+      phase: st.phase || 'idle',
+      weaponId: st.weaponId || state.player.weaponId,
+      x: Number((st.x ?? state.player.x).toFixed(3)),
+      y: Number((st.y ?? (state.player.y + 0.92)).toFixed(3)),
+      z: Number((st.z ?? state.player.z).toFixed(3)),
+      spinAngle: Number((st.spinAngle || 0).toFixed(3)),
+      distFromHero: Number((st.distFromHero || 0).toFixed(3)),
+      maxDistReached: Number((st.maxDistReached || 0).toFixed(3)),
+      hits: Number(st.hits) || 0,
+      hitCount: Number(st.hitCount ?? st.hits) || 0,
+      throwCount: Number(st.throwCount) || 0,
+      returnCount: Number(st.returnCount) || 0,
+    };
+    const groundY = Number.isFinite(state.player.groundY)
+      ? state.player.groundY
+      : state.player.y;
+    const jumpY = Math.max(0, state.player.y - groundY);
+    const playerSnap = {
+      x: Number(state.player.x.toFixed(3)),
+      y: Number(state.player.y.toFixed(3)),
+      groundY: Number(groundY.toFixed(3)),
+      jumpY: Number(jumpY.toFixed(3)),
+      z: Number(state.player.z.toFixed(3)),
+      vx: Number((state.player.vx || 0).toFixed(3)),
+      vy: Number((state.player.vy || 0).toFixed(3)),
+      vz: Number((state.player.vz || 0).toFixed(3)),
+      grounded: Boolean(state.player.grounded !== false && !state.player.jumping),
+      airborne: Boolean(state.player.airborne || state.player.jumping),
+      jumping: Boolean(state.player.jumping),
+      jumpCount: Number(state.player.jumpCount) || 0,
+      jumpApexY: Number((state.player.jumpApexY ?? groundY).toFixed(3)),
+      yaw: Number((state.player.yaw || 0).toFixed(3)),
+      baseSpeed: state.player.baseSpeed,
+      speed: state.player.speed,
+      weaponId: state.player.weaponId,
+      weaponTier: state.player.weaponTier,
+      powerTier: state.player.powerTier,
+      comboBeat: state.player.comboBeat || 1,
+      helmet: Boolean(state.player.helmet),
+      speedBoots: Boolean(state.player.speedBoots),
+      starCape: Boolean(state.player.starCape),
+      crown: Boolean(state.player.crown),
+      shieldHearts: state.player.shieldHearts,
+      maxShieldHearts: state.player.maxShieldHearts,
+      starGems: state.player.starGems,
+      potSeeds: state.player.potSeeds,
+      drumSeeds: state.player.potSeeds,
+      freeSpins: state.player.freeSpins,
+      state: state.player.state,
+      stickProjectile: stickSnap,
+    };
 
     return {
       mode: state.mode,
@@ -1400,31 +1941,9 @@ function bootLuckyBlockTitans() {
       time: Number(state.time.toFixed(4)),
       chaosMode: Boolean(state.chaosMode),
       victoryCelebrated: Boolean(state.victoryCelebrated),
-      player: {
-        x: Number(state.player.x.toFixed(3)),
-        y: Number(state.player.y.toFixed(3)),
-        z: Number(state.player.z.toFixed(3)),
-        vx: Number((state.player.vx || 0).toFixed(3)),
-        vz: Number((state.player.vz || 0).toFixed(3)),
-        yaw: Number((state.player.yaw || 0).toFixed(3)),
-        baseSpeed: state.player.baseSpeed,
-        speed: state.player.speed,
-        weaponId: state.player.weaponId,
-        weaponTier: state.player.weaponTier,
-        powerTier: state.player.powerTier,
-        comboBeat: state.player.comboBeat || 1,
-        helmet: Boolean(state.player.helmet),
-        speedBoots: Boolean(state.player.speedBoots),
-        starCape: Boolean(state.player.starCape),
-        crown: Boolean(state.player.crown),
-        shieldHearts: state.player.shieldHearts,
-        maxShieldHearts: state.player.maxShieldHearts,
-        starGems: state.player.starGems,
-        potSeeds: state.player.potSeeds,
-        drumSeeds: state.player.potSeeds,
-        freeSpins: state.player.freeSpins,
-        state: state.player.state,
-      },
+      player: playerSnap,
+      hero: playerSnap,
+      stickThrow: stickSnap,
       blocksBroken: state.blocksBroken,
       drumsBroken: state.blocksBroken,
       luckyBlocksCount: state.luckyBlocksCount,
@@ -1506,7 +2025,10 @@ function bootLuckyBlockTitans() {
       if (d > MOVEMENT_TUNING.titanMeleeRange + 0.5) {
         const approach = world.clampToWalkable(live.x, live.z + 2.4);
         state.player.x = approach.x;
-        state.player.y = approach.y;
+        state.player.groundY = approach.y;
+        if (!state.player.jumping) {
+          state.player.y = approach.y;
+        }
         state.player.z = approach.z;
         state.player.yaw = Math.atan2(live.x - approach.x, live.z - approach.z);
       }
@@ -1572,6 +2094,8 @@ function bootLuckyBlockTitans() {
     spawnTitan: seamSpawnTitan,
     bonkTitan: seamBonkTitan,
     swingDrum: (opts = {}) => swingDrum(opts),
+    jump: (opts = {}) => triggerJump({ ...opts, fromSeam: opts.fromSeam !== false }),
+    throwStick: (opts = {}) => throwStick({ ...opts, fromSeam: opts.fromSeam !== false }),
     replayVoice: () => voice.replayLast(),
     stepFrames: (n, dt) => loop.stepFrames(n, dt),
     buildStateSnapshot,

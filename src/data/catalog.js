@@ -449,4 +449,11 @@ export const MOVEMENT_TUNING = Object.freeze({
   titanMeleeRange: 4.2,
   pickupMagnetRadius: 3.6,
   capeMagnetRadius: 5.8,
+  jumpVelocity: 11.5,
+  jumpGravityUp: 28.0,
+  jumpGravityDown: 38.0,
+  stickThrowRange: 6.2,
+  stickOutboundSec: 0.32,
+  stickHoverSec: 0.16,
+  stickReturnSec: 0.34,
 });

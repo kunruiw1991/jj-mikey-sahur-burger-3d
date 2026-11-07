@@ -223,6 +223,12 @@ export function createHud(ctx = {}) {
         <span class="btn-label">${STRINGS.HUD.menuLabel}</span>
       </button>
 
+      <button type="button" id="btn-hud-jump" class="kid-btn hud-action-btn hud-btn-jump" aria-label="${STRINGS.HUD.jumpAria}">
+        <span class="btn-badge" id="badge-hud-jump">UP!</span>
+        <span class="btn-icon" aria-hidden="true">\uD83E\uDD98</span>
+        <span class="btn-label" id="label-hud-jump">${STRINGS.HUD.jumpLabel}</span>
+      </button>
+
       <button type="button" id="btn-hud-drum" class="kid-btn hud-action-btn hud-btn-drum" aria-label="${STRINGS.HUD.drumAria}">
         <span class="btn-badge" id="badge-hud-drum">1/3</span>
         <span class="btn-icon" aria-hidden="true">\uD83E\uDD41</span>
@@ -249,6 +255,9 @@ export function createHud(ctx = {}) {
   const voiceBtn = root.querySelector('#btn-hud-voice');
   const menuBtn = root.querySelector('#btn-hud-menu');
   const chaosBadgeEl = root.querySelector('#badge-hud-chaos');
+  const jumpBtn = root.querySelector('#btn-hud-jump');
+  const jumpBadgeEl = root.querySelector('#badge-hud-jump');
+  const jumpLabelEl = root.querySelector('#label-hud-jump');
   const drumBtn = root.querySelector('#btn-hud-drum');
   const drumBadgeEl = root.querySelector('#badge-hud-drum');
 
@@ -363,6 +372,16 @@ export function createHud(ctx = {}) {
       },
       280
     ),
+    bindTap(
+      jumpBtn,
+      () => {
+        ctx.audio?.unlock?.();
+        if (typeof ctx.actions?.jump === 'function') {
+          ctx.actions.jump({ fromButton: true });
+        }
+      },
+      140
+    ),
   ];
 
   function show() {
@@ -436,7 +455,7 @@ export function createHud(ctx = {}) {
     }
     trophiesValEl.textContent = `${trophyCount}/4`;
 
-    // Update 4 HUD Action Buttons + P2-5 Guide Arrow pulse-ring coordination!
+    // Update 6 HUD Action Buttons + P2-5 Guide Arrow pulse-ring coordination!
     const { freeSpins, spinCost, canSpin, weaponTier } = getSpinInfo(state, ctx);
     if (freeSpins > 0) {
       spinBadgeEl.textContent = STRINGS.HUD.spinFree;
@@ -473,6 +492,13 @@ export function createHud(ctx = {}) {
 
     chaosBadgeEl.hidden = !state.chaosMode;
 
+    if (jumpBadgeEl && jumpLabelEl) {
+      const isAir = Boolean(p.jumping || p.airborne || p.grounded === false);
+      const stickActive = Boolean(state.stickThrow?.active);
+      jumpBadgeEl.textContent = stickActive ? 'FLY!' : isAir ? 'AIR!' : 'UP!';
+      jumpLabelEl.textContent = isAir && !stickActive ? STRINGS.HUD.jumpAirLabel : STRINGS.HUD.jumpLabel;
+    }
+
     if (drumHeld) {
       drumHoldTimer += Math.max(0, Number(dt) || 1 / 60);
       const intervalSec = MOVEMENT_TUNING.swingIntervalSec || 0.30;
@@ -506,6 +532,7 @@ export function createHud(ctx = {}) {
     totemBtn: potBtn,
     voiceBtn,
     menuBtn,
+    jumpBtn,
     drumBtn,
     show,
     hide,

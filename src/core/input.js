@@ -9,6 +9,8 @@ export function createInputController(
     onDragStart,
     onDragYaw,
     onActionKey,
+    onJumpKey,
+    onThrowKey,
     onUnlockAudio,
   } = {}
 ) {
@@ -142,8 +144,17 @@ export function createInputController(
     const code = e.code || e.key;
     if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
       keys.add(code);
-    } else if (code === 'Space') {
-      if (!e.repeat) onActionKey?.();
+    } else if (code === 'Space' || code === 'KeyJ' || code === 'KeyZ') {
+      if (!e.repeat) {
+        e.preventDefault?.();
+        if (onJumpKey) onJumpKey(code);
+        else onActionKey?.(code);
+      }
+    } else if (code === 'KeyK' || code === 'KeyE' || code === 'KeyF' || code === 'KeyX' || code === 'Enter') {
+      if (!e.repeat) {
+        if (onThrowKey) onThrowKey(code);
+        else onActionKey?.(code);
+      }
     }
   }
 

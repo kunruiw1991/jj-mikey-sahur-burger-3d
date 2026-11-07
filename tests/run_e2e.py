@@ -1473,6 +1473,158 @@ def check_e44_five_viewport_layout_audit_pass(
   return {'viewportsPassed': rep['viewportCount'], 'shotsDir': rep['shotsDir']}
 
 
+def check_e47_mario_jump_button_and_3d_arc(
+    sess: QASession, ctx: dict[str, Any]
+) -> dict[str, Any]:
+  sess.eval_json('(() => { window.__LUCKY_TITAN__.startGame({ seed: 2026 }); return true; })()')
+  sess.wait_raf(2)
+  time.sleep(0.20)
+  jump_btn = sess.locate_control(['#btn-hud-jump'])
+  assert jump_btn.get('found'), f'#btn-hud-jump not found: {jump_btn}'
+  assert jump_btn['width'] >= 72 and jump_btn['height'] >= 72, (
+      f'#btn-hud-jump undersized (<72px): {jump_btn}'
+  )
+
+  # 1-tap #btn-hud-jump via CDP pointer event
+  sess.pointer_tap(jump_btn['x'], jump_btn['y'])
+  sess.step_frames(12)
+  sess.wait_raf(2)
+  ctx['e47_shot'] = sess.screenshot('e2e_47_mario_jump.jpg')
+
+  mid_state = sess.eval_json(
+      """(() => {
+        const st = window.__LUCKY_TITAN__.getState();
+        const scene = window.__THREE_SCENES__ && window.__THREE_SCENES__[0];
+        const cam = window.__THREE_CAMERAS__ && window.__THREE_CAMERAS__[0];
+        return {
+          y: st.player?.y,
+          groundY: st.player?.groundY,
+          jumpY: st.player?.jumpY,
+          jumping: st.player?.jumping,
+          airborne: st.player?.airborne,
+          jumpCount: st.player?.jumpCount,
+          camRoll: cam ? Math.abs(cam.rotation.z) : 0,
+          sceneFound: Boolean(scene),
+        };
+      })()"""
+  )
+  assert mid_state.get('jumping') and float(mid_state.get('jumpY') or 0) > 1.0, (
+      f'Hero did not enter Mario jump arc after tapping #btn-hud-jump: {mid_state}'
+  )
+  assert float(mid_state.get('camRoll') or 0) == 0.0, f'Camera roll non-zero during jump: {mid_state}'
+
+  # Step until landing
+  landed_state = sess.eval_json(
+      """(() => {
+        const L = window.__LUCKY_TITAN__;
+        for (let i = 0; i < 55; i++) {
+          L.stepFrames(1, 1 / 60);
+          const st = L.getState();
+          if (st.player.grounded && !st.player.jumping) break;
+        }
+        // Also test Space key jump trigger
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ', bubbles: true }));
+        L.stepFrames(10, 1 / 60);
+        const spaceMid = L.getState().player;
+        for (let i = 0; i < 55; i++) {
+          L.stepFrames(1, 1 / 60);
+          if (L.getState().player.grounded) break;
+        }
+        const finalSt = L.getState();
+        return {
+          spaceTriggeredJump: Boolean(spaceMid.jumping && spaceMid.jumpY > 0.8),
+          finalGrounded: finalSt.player.grounded,
+          finalJumping: finalSt.player.jumping,
+          finalJumpCount: finalSt.player.jumpCount,
+          finalJumpApexY: finalSt.player.jumpApexY,
+        };
+      })()"""
+  )
+  assert landed_state.get('spaceTriggeredJump'), f'Space key did not trigger Mario jump: {landed_state}'
+  assert landed_state.get('finalGrounded') and not landed_state.get('finalJumping'), (
+      f'Hero did not land cleanly after jump: {landed_state}'
+  )
+  assert int(landed_state.get('finalJumpCount') or 0) >= 2, f'jumpCount did not increment: {landed_state}'
+  return {'midAir': mid_state, 'landed': landed_state}
+
+
+def check_e48_odyssey_sahur_stick_throw_and_return(
+    sess: QASession, ctx: dict[str, Any]
+) -> dict[str, Any]:
+  _ensure_three_spy(sess)
+  flight_info = sess.eval_json(
+      """(() => {
+        const L = window.__LUCKY_TITAN__;
+        L.startGame({ seed: 2026 });
+        const throwRes = L.throwStick({ targetX: 0, targetZ: 2.0 });
+        L.stepFrames(14, 1 / 60);
+        const stMid = L.getState();
+        const scene = window.__QA_LAST_SCENE__;
+        let stickMeshVisible = false;
+        let handSocketVisible = true;
+        if (scene) {
+          scene.traverse((obj) => {
+            if (obj.name === 'thrown_sahur_stick') stickMeshVisible = Boolean(obj.visible);
+            if (obj.name === 'hero_weapon_socket') handSocketVisible = Boolean(obj.visible);
+          });
+        }
+        return {
+          throwRes,
+          midStick: stMid.stickThrow,
+          stickMeshVisible,
+          handSocketVisible,
+          blocksBrokenMid: stMid.blocksBroken,
+        };
+      })()"""
+  )
+  ctx['e48_shot'] = sess.screenshot('e2e_48_stick_throw.jpg')
+  assert flight_info.get('throwRes', {}).get('ok'), f'throwStick failed to launch: {flight_info}'
+  assert flight_info.get('stickMeshVisible') and not flight_info.get('handSocketVisible'), (
+      f'3D thrown_sahur_stick visibility or handSocket hide failed in flight: {flight_info}'
+  )
+  assert float((flight_info.get('midStick') or {}).get('distFromHero') or 0) >= 2.0, (
+      f'Thrown stick did not travel outward in 3D space: {flight_info}'
+  )
+
+  return_info = sess.eval_json(
+      """(() => {
+        const L = window.__LUCKY_TITAN__;
+        for (let i = 0; i < 75; i++) {
+          L.stepFrames(1, 1 / 60);
+          if (!L.getState().stickThrow?.active) break;
+        }
+        const stAfter = L.getState();
+        const scene = window.__QA_LAST_SCENE__;
+        let stickMeshVisibleAfter = true;
+        let handSocketVisibleAfter = false;
+        if (scene) {
+          scene.traverse((obj) => {
+            if (obj.name === 'thrown_sahur_stick') stickMeshVisibleAfter = Boolean(obj.visible);
+            if (obj.name === 'hero_weapon_socket') handSocketVisibleAfter = Boolean(obj.visible);
+          });
+        }
+        return {
+          afterStick: stAfter.stickThrow,
+          stickMeshVisibleAfter,
+          handSocketVisibleAfter,
+          blocksBrokenAfter: stAfter.blocksBroken,
+        };
+      })()"""
+  )
+  after_st = return_info.get('afterStick') or {}
+  assert not after_st.get('active') and int(after_st.get('returnCount') or 0) >= 1, (
+      f'Sahur stick did not return to hero hand: {return_info}'
+  )
+  assert return_info.get('handSocketVisibleAfter') and not return_info.get('stickMeshVisibleAfter'), (
+      f'Sahur stick 3D mesh did not re-attach to hero hand after catch: {return_info}'
+  )
+  assert int(return_info.get('blocksBrokenAfter') or 0) >= 1 and int(after_st.get('hits') or 0) >= 1, (
+      f'Thrown Sahur stick did not hit/break block along path: {return_info}'
+  )
+  return {'flight': flight_info, 'returned': return_info}
+
+
 E2E_ASSERTIONS: list[tuple[str, str, Callable[[QASession, dict[str, Any]], dict[str, Any]]]] = [
     ('E01_boot_zero_errors', 'boot', check_e01_boot_zero_errors),
     ('E02_seam_contract_complete', 'seam', check_e02_seam_contract_complete),
@@ -1518,6 +1670,8 @@ E2E_ASSERTIONS: list[tuple[str, str, Callable[[QASession, dict[str, Any]], dict[
     ('E42_voice_replay_auto_unmutes_when_muted', 'voice', check_e42_voice_replay_auto_unmutes_when_muted),
     ('E45_stationary_450ms_hold_tap', 'input', check_e45_stationary_450ms_hold_tap),
     ('E46_continue_button_reload_persistence', 'boot', check_e46_continue_button_reload_persistence),
+    ('E47_mario_jump_button_and_3d_arc', 'chars', check_e47_mario_jump_button_and_3d_arc),
+    ('E48_odyssey_sahur_stick_throw_and_return', 'combat', check_e48_odyssey_sahur_stick_throw_and_return),
     ('E43_zero_cjk_static_and_full_runtime_flow', 'l10n', check_e43_zero_cjk_static_and_full_runtime_flow),
     ('E44_five_viewport_layout_audit_pass', 'layout', check_e44_five_viewport_layout_audit_pass),
 ]

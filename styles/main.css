@@ -586,15 +586,15 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   pointer-events: none;
 }
 
 .hud-action-btn {
-  width: 96px;
-  height: 86px;
-  min-width: 92px;
-  min-height: 84px;
+  width: 92px;
+  height: 84px;
+  min-width: 88px;
+  min-height: 82px;
   padding: 11px 6px 6px;
   gap: 2px;
 }
@@ -642,9 +642,22 @@ canvas {
   box-shadow: 0 2px 0 var(--purple-lip);
 }
 
+.hud-btn-jump {
+  background: linear-gradient(180deg, #66d9e8 0%, #1098ad 100%);
+  border-color: #0b4f5c;
+  box-shadow: 0 6px 0 #0b4f5c, inset 0 3px 0 rgba(255, 255, 255, 0.72), 0 8px 16px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  text-shadow: 0 2px 0 #0b4f5c;
+}
+
+.hud-btn-jump.is-pressed,
+.hud-btn-jump:active {
+  box-shadow: 0 2px 0 #0b4f5c;
+}
+
 .hud-btn-drum {
-  width: 102px;
-  min-width: 96px;
+  width: 98px;
+  min-width: 94px;
   background: linear-gradient(180deg, #ff922b 0%, #e8590c 100%);
   border-color: #7f2704;
   box-shadow: 0 6px 0 #7f2704, inset 0 3px 0 rgba(255, 255, 255, 0.72), 0 8px 16px rgba(0, 0, 0, 0.22);
@@ -1335,31 +1348,35 @@ body.ui-modal-open .voice-subtitle {
     font-size: 13px;
   }
 
-  /* 4 * 72px + 76px + 4 * 4px = 380px <= 390px! Zero wrap, >= 72x78 px targets (#btn-hud-drum 76x78 px)! */
+  /* 2x3 wrapped grid of 118x74px buttons on 390x844 (3 * 118 + 2 * 6 = 366px <= 374px; >= 72x74 px targets)! */
   .hud-actions {
     bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    gap: 4px;
+    width: min(374px, calc(100vw - 12px));
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .hud-action-btn {
-    width: 72px;
-    height: 78px;
-    min-width: 72px;
-    min-height: 78px;
-    padding: 10px 2px 4px;
+    width: 118px;
+    height: 74px;
+    min-width: 112px;
+    min-height: 74px;
+    flex: 0 0 118px;
+    padding: 8px 4px 4px;
     gap: 1px;
     border-radius: 16px;
   }
 
   .hud-btn-drum {
-    width: 76px;
-    min-width: 76px;
-    height: 78px;
-    min-height: 78px;
+    width: 118px;
+    min-width: 112px;
+    height: 74px;
+    min-height: 74px;
+    flex: 0 0 118px;
   }
 
   .hud-action-btn .btn-icon {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   .hud-action-btn .btn-label {
@@ -1367,7 +1384,7 @@ body.ui-modal-open .voice-subtitle {
   }
 
   .voice-subtitle {
-    bottom: 112px;
+    bottom: 174px;
     min-width: 196px;
     max-width: 92vw;
     padding: 9px 14px;
@@ -1442,21 +1459,21 @@ body.ui-modal-open .voice-subtitle {
 
   .hud-actions {
     bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    gap: 10px;
+    gap: 8px;
   }
 
   .hud-action-btn {
-    width: 88px;
+    width: 84px;
     height: 76px;
-    min-width: 84px;
+    min-width: 80px;
     min-height: 76px;
     padding: 9px 6px 4px;
     gap: 1px;
   }
 
   .hud-btn-drum {
-    width: 92px;
-    min-width: 88px;
+    width: 90px;
+    min-width: 86px;
     height: 76px;
     min-height: 76px;
   }

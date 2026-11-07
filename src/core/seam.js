@@ -11,11 +11,23 @@ export function installSeam(api) {
     tapWorld(x, z) {
       return api.tapWorld(Number(x), Number(z));
     },
-    swingDrum() {
-      return api.swingDrum();
+    swingDrum(opts = {}) {
+      return api.swingDrum(opts);
     },
-    drumSwing() {
-      return api.swingDrum();
+    drumSwing(opts = {}) {
+      return api.swingDrum(opts);
+    },
+    jump(opts = {}) {
+      return api.jump(opts);
+    },
+    triggerJump(opts = {}) {
+      return api.jump(opts);
+    },
+    throwStick(opts = {}) {
+      return api.throwStick(opts);
+    },
+    triggerStickThrow(opts = {}) {
+      return api.throwStick(opts);
     },
     breakBlock(x, y, z) {
       return api.breakBlock(x, y, z);
